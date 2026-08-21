@@ -1,7 +1,7 @@
 import 'dart:io';
 
-import 'package:fluentui_system_icons/fluentui_system_icons.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:fluentui_system_icons/fluentui_system_icons.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:musify/models/element_config.dart';
 import 'package:musify/models/layout_slot.dart';
@@ -272,7 +272,7 @@ class _SnapResult {
 }
 
 class _GuideMatch {
-  const _GuideMatch(this.target, this.offset) : distance = offset.abs();
+  _GuideMatch(this.target, this.offset) : distance = offset.abs();
 
   final double target;
   final double offset;
