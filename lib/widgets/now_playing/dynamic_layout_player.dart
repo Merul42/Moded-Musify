@@ -24,14 +24,10 @@ class DynamicLayoutPlayer extends StatelessWidget {
     return LayoutBuilder(
       builder: (context, constraints) => Stack(
         children: slot.elements.map((element) {
-            final x = element.x.clamp(0.0, constraints.maxWidth).toDouble();
-            final y = element.y.clamp(0.0, constraints.maxHeight).toDouble();
-            final width = element.width
-              .clamp(1.0, constraints.maxWidth)
-              .toDouble();
-            final height = element.height
-              .clamp(1.0, constraints.maxHeight)
-              .toDouble();
+          final x = _limit(element.x, 0, constraints.maxWidth);
+          final y = _limit(element.y, 0, constraints.maxHeight);
+          final width = _limit(element.width, 1, constraints.maxWidth);
+          final height = _limit(element.height, 1, constraints.maxHeight);
           return Positioned(
             left: x,
             top: y,
@@ -42,6 +38,13 @@ class DynamicLayoutPlayer extends StatelessWidget {
         }).toList(),
       ),
     );
+  }
+
+  double _limit(double value, double minimum, double maximum) {
+    if (maximum < minimum) return minimum;
+    if (value < minimum) return minimum;
+    if (value > maximum) return maximum;
+    return value;
   }
 }
 
@@ -81,6 +84,7 @@ class _DynamicElement extends StatelessWidget {
     switch (element.actionId ?? element.id) {
       case 'PLAY_PAUSE':
         return PlaybackIconButton(
+          iconSize: 32,
           iconColor: Theme.of(context).colorScheme.onPrimary,
           backgroundColor: Theme.of(context).colorScheme.primary,
         );
@@ -180,6 +184,7 @@ class _DynamicElement extends StatelessWidget {
     final colors = Theme.of(context).colorScheme;
     return IconButton(
       icon: Icon(icon),
+      iconSize: 24,
       color: active ? colors.primary : colors.onSurfaceVariant,
       onPressed: onPressed,
     );
