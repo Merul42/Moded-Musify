@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:ui' as ui;
 
 import 'package:audio_service/audio_service.dart';
 import 'package:file_picker/file_picker.dart';
@@ -75,6 +76,11 @@ class _LayoutEditorScreenState extends State<LayoutEditorScreen> {
             selectedIcon: const Icon(FluentIcons.eye_24_filled),
             icon: const Icon(FluentIcons.eye_24_regular),
             onPressed: () => setState(() => _previewEnabled = !_previewEnabled),
+          ),
+          IconButton(
+            tooltip: 'Katmanlar',
+            icon: const Icon(FluentIcons.layer_24_filled),
+            onPressed: _showLayersSheet,
           ),
           const SizedBox(width: 12),
         ],
@@ -187,6 +193,24 @@ class _LayoutEditorScreenState extends State<LayoutEditorScreen> {
   }
 
   Widget _buildElementContent(ElementConfig element, Color color) {
+    final componentId = element.actionId ?? element.id;
+    if (componentId == 'BLUR_BACKGROUND') {
+      return BackdropFilter(
+        filter: ui.ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+        child: ColoredBox(color: color.withValues(alpha: 0.18)),
+      );
+    }
+    if (componentId == 'NEON_FRAME' || componentId == 'EKRAN_CERCEVESI') {
+      return DecoratedBox(
+        decoration: BoxDecoration(
+          border: Border.all(color: color, width: 3),
+          boxShadow: [
+            BoxShadow(color: color.withValues(alpha: 0.9), blurRadius: 12),
+            BoxShadow(color: color.withValues(alpha: 0.55), blurRadius: 28),
+          ],
+        ),
+      );
+    }
     final imagePath = element.customImagePath;
     if (imagePath != null && imagePath.isNotEmpty) {
       final image = imagePath.startsWith('http://') ||
@@ -377,7 +401,7 @@ class _LayoutEditorScreenState extends State<LayoutEditorScreen> {
     final x = ((screenSize.width - width) / 2).clamp(16.0, double.infinity);
     final y = ((screenSize.height - height) / 2).clamp(16.0, double.infinity);
     final element = ElementConfig(
-      id: option.id,
+      id: '${option.id}_${DateTime.now().microsecondsSinceEpoch}',
       x: x.toDouble(),
       y: y.toDouble(),
       width: width,
@@ -389,6 +413,26 @@ class _LayoutEditorScreenState extends State<LayoutEditorScreen> {
       _elements.add(element);
       _selectedElementId = element.id;
     });
+    await _saveLayout();
+  }
+
+  Future<void> _showLayersSheet() async {
+    if (_elements.isEmpty) return;
+    final reordered = await showModalBottomSheet<List<ElementConfig>>(
+      context: context,
+      showDragHandle: true,
+      isScrollControlled: true,
+      builder: (context) => _LayersSheet(
+        elements: _elements,
+        onChanged: (elements) async {
+          if (!mounted) return;
+          setState(() => _elements = elements);
+          await _saveLayout();
+        },
+      ),
+    );
+    if (!mounted || reordered == null) return;
+    setState(() => _elements = reordered);
     await _saveLayout();
   }
 
@@ -501,6 +545,13 @@ class _ComponentPickerSheet extends StatelessWidget {
           icon: FluentIcons.image_24_regular,
           defaultWidth: 320,
           defaultHeight: 180,
+        ),
+        _ComponentOption(
+          id: 'NEON_FRAME',
+          label: 'Neon Çerçeve / Ekran Çerçevesi',
+          icon: FluentIcons.border_all_24_filled,
+          defaultWidth: 320,
+          defaultHeight: 560,
         ),
       ],
     ),
@@ -651,6 +702,83 @@ class _ComponentOption {
   final IconData icon;
   final double defaultWidth;
   final double defaultHeight;
+}
+
+class _LayersSheet extends StatefulWidget {
+  const _LayersSheet({required this.elements, required this.onChanged});
+
+  final List<ElementConfig> elements;
+  final Future<void> Function(List<ElementConfig> elements) onChanged;
+
+  @override
+  State<_LayersSheet> createState() => _LayersSheetState();
+}
+
+class _LayersSheetState extends State<_LayersSheet> {
+  late List<ElementConfig> _topToBottom;
+
+  @override
+  void initState() {
+    super.initState();
+    _topToBottom = widget.elements.reversed.toList();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(20, 4, 20, 24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text('Katmanlar', style: Theme.of(context).textTheme.headlineSmall),
+            const SizedBox(height: 8),
+            Text(
+              'Üstteki öğeler alttaki öğelerin üzerinde görünür.',
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+            const SizedBox(height: 8),
+            ConstrainedBox(
+              constraints: const BoxConstraints(maxHeight: 420),
+              child: ReorderableListView.builder(
+                shrinkWrap: true,
+                itemCount: _topToBottom.length,
+                onReorder: (oldIndex, newIndex) {
+                  setState(() {
+                    if (newIndex > oldIndex) newIndex -= 1;
+                    final element = _topToBottom.removeAt(oldIndex);
+                    _topToBottom.insert(newIndex, element);
+                  });
+                  widget.onChanged(_topToBottom.reversed.toList());
+                },
+                itemBuilder: (context, index) {
+                  final element = _topToBottom[index];
+                  return ListTile(
+                    key: ValueKey(element.id),
+                    leading: const Icon(FluentIcons.layer_24_regular),
+                    title: Text(_layerLabel(element)),
+                    subtitle: Text(element.id),
+                    trailing: const Icon(FluentIcons.re_order_dots_vertical_24_regular),
+                  );
+                },
+              ),
+            ),
+            const SizedBox(height: 12),
+            FilledButton(
+              onPressed: () => Navigator.pop(context, _topToBottom.reversed.toList()),
+              child: const Text('Sıralamayı Uygula'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  String _layerLabel(ElementConfig element) {
+    final action = element.actionId ?? element.id;
+    return action.replaceAll('_', ' ');
+  }
 }
 
 class _ElementEditorPanel extends StatefulWidget {

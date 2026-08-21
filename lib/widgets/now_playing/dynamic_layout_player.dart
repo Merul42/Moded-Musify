@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:ui' as ui;
 
 import 'package:audio_service/audio_service.dart';
 import 'package:fluentui_system_icons/fluentui_system_icons.dart';
@@ -57,6 +58,28 @@ class _DynamicElement extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final color = _parseColor(element.colorHex);
+    final componentId = element.actionId ?? element.id;
+    if (componentId == 'BLUR_BACKGROUND') {
+      return BackdropFilter(
+        filter: ui.ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+        child: ColoredBox(
+          color: (color ?? Theme.of(context).colorScheme.surface)
+              .withValues(alpha: 0.18),
+        ),
+      );
+    }
+    if (componentId == 'NEON_FRAME' || componentId == 'EKRAN_CERCEVESI') {
+      final frameColor = color ?? Theme.of(context).colorScheme.primary;
+      return DecoratedBox(
+        decoration: BoxDecoration(
+          border: Border.all(color: frameColor, width: 3),
+          boxShadow: [
+            BoxShadow(color: frameColor.withValues(alpha: 0.9), blurRadius: 12),
+            BoxShadow(color: frameColor.withValues(alpha: 0.55), blurRadius: 28),
+          ],
+        ),
+      );
+    }
     final action = _actionWidget(context);
     if (element.customImagePath == null || element.customImagePath!.isEmpty) {
       return action;
