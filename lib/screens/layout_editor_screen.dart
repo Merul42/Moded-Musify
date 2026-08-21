@@ -1036,7 +1036,7 @@ class _LayersSheetState extends State<_LayersSheet> {
               child: ReorderableListView.builder(
                 shrinkWrap: true,
                 itemCount: _topToBottom.length,
-                onReorder: (oldIndex, newIndex) {
+                onReorderItem: (oldIndex, newIndex) {
                   setState(() {
                     if (newIndex > oldIndex) newIndex -= 1;
                     final element = _topToBottom.removeAt(oldIndex);
@@ -1217,7 +1217,7 @@ class _ElementEditorPanelState extends State<_ElementEditorPanel> {
                 labelText: 'Buton Aksiyonu / İşlevi',
               ),
               items: const [
-                DropdownMenuItem<String?>(value: null, child: Text('Yok')),
+                DropdownMenuItem<String?>(child: Text('Yok')),
                 DropdownMenuItem(value: 'PLAY_PAUSE', child: Text('Oynat / Duraklat')),
                 DropdownMenuItem(value: 'NEXT', child: Text('Sonraki')),
                 DropdownMenuItem(value: 'PREVIOUS', child: Text('Önceki')),
