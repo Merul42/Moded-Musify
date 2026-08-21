@@ -79,6 +79,11 @@ class _LayoutEditorScreenState extends State<LayoutEditorScreen> {
           const SizedBox(width: 12),
         ],
       ),
+      floatingActionButton: FloatingActionButton.extended(
+        icon: const Icon(FluentIcons.add_24_filled),
+        label: const Text('Bileşen Ekle'),
+        onPressed: _showAddElementSheet,
+      ),
       body: LayoutBuilder(
         builder: (context, constraints) {
           final canvasSize = Size(
@@ -357,6 +362,36 @@ class _LayoutEditorScreenState extends State<LayoutEditorScreen> {
     await _saveLayout();
   }
 
+  Future<void> _showAddElementSheet() async {
+    final option = await showModalBottomSheet<_ComponentOption>(
+      context: context,
+      showDragHandle: true,
+      isScrollControlled: true,
+      builder: (context) => const _ComponentPickerSheet(),
+    );
+    if (!mounted || option == null) return;
+
+    final screenSize = MediaQuery.sizeOf(context);
+    final width = option.defaultWidth;
+    final height = option.defaultHeight;
+    final x = ((screenSize.width - width) / 2).clamp(16.0, double.infinity);
+    final y = ((screenSize.height - height) / 2).clamp(16.0, double.infinity);
+    final element = ElementConfig(
+      id: option.id,
+      x: x.toDouble(),
+      y: y.toDouble(),
+      width: width,
+      height: height,
+      actionId: option.id,
+    );
+
+    setState(() {
+      _elements.add(element);
+      _selectedElementId = element.id;
+    });
+    await _saveLayout();
+  }
+
   void _replaceElement(ElementConfig oldElement, ElementConfig newElement) {
     final index = _elements.indexOf(oldElement);
     if (index != -1) _elements[index] = newElement;
@@ -444,6 +479,178 @@ class _LayoutGridPainter extends CustomPainter {
         oldDelegate.verticalGuides != verticalGuides ||
         oldDelegate.horizontalGuides != horizontalGuides;
   }
+}
+
+class _ComponentPickerSheet extends StatelessWidget {
+  const _ComponentPickerSheet();
+
+  static const _sections = <({String title, List<_ComponentOption> options})>[
+    (
+      title: 'Görseller',
+      options: [
+        _ComponentOption(
+          id: 'ALBUM_ART',
+          label: 'Albüm Kapağı',
+          icon: FluentIcons.image_24_filled,
+          defaultWidth: 180,
+          defaultHeight: 180,
+        ),
+        _ComponentOption(
+          id: 'BLUR_BACKGROUND',
+          label: 'Bulanık Arka Plan',
+          icon: FluentIcons.image_24_regular,
+          defaultWidth: 320,
+          defaultHeight: 180,
+        ),
+      ],
+    ),
+    (
+      title: 'Metinler',
+      options: [
+        _ComponentOption(
+          id: 'SONG_TITLE',
+          label: 'Şarkı Adı',
+          icon: FluentIcons.text_24_filled,
+          defaultWidth: 240,
+          defaultHeight: 48,
+        ),
+        _ComponentOption(
+          id: 'ARTIST_NAME',
+          label: 'Sanatçı Adı',
+          icon: FluentIcons.person_24_filled,
+          defaultWidth: 240,
+          defaultHeight: 40,
+        ),
+        _ComponentOption(
+          id: 'CURRENT_TIME',
+          label: 'Geçen Süre',
+          icon: FluentIcons.timer_24_filled,
+          defaultWidth: 80,
+          defaultHeight: 40,
+        ),
+        _ComponentOption(
+          id: 'TOTAL_TIME',
+          label: 'Toplam Süre',
+          icon: FluentIcons.timer_24_regular,
+          defaultWidth: 80,
+          defaultHeight: 40,
+        ),
+      ],
+    ),
+    (
+      title: 'Kontroller',
+      options: [
+        _ComponentOption(
+          id: 'PLAY_PAUSE',
+          label: 'Oynat / Duraklat',
+          icon: FluentIcons.play_circle_24_filled,
+          defaultWidth: 64,
+          defaultHeight: 64,
+        ),
+        _ComponentOption(
+          id: 'NEXT_TRACK',
+          label: 'Sonraki Şarkı',
+          icon: FluentIcons.next_24_filled,
+          defaultWidth: 56,
+          defaultHeight: 56,
+        ),
+        _ComponentOption(
+          id: 'PREVIOUS_TRACK',
+          label: 'Önceki Şarkı',
+          icon: FluentIcons.previous_24_filled,
+          defaultWidth: 56,
+          defaultHeight: 56,
+        ),
+        _ComponentOption(
+          id: 'LIKE',
+          label: 'Beğen',
+          icon: FluentIcons.heart_24_filled,
+          defaultWidth: 56,
+          defaultHeight: 56,
+        ),
+        _ComponentOption(
+          id: 'SHUFFLE',
+          label: 'Karıştır',
+          icon: FluentIcons.arrow_shuffle_24_filled,
+          defaultWidth: 56,
+          defaultHeight: 56,
+        ),
+        _ComponentOption(
+          id: 'REPEAT',
+          label: 'Tekrarla',
+          icon: FluentIcons.arrow_repeat_all_24_filled,
+          defaultWidth: 56,
+          defaultHeight: 56,
+        ),
+        _ComponentOption(
+          id: 'QUEUE',
+          label: 'Sıra',
+          icon: FluentIcons.list_24_filled,
+          defaultWidth: 56,
+          defaultHeight: 56,
+        ),
+        _ComponentOption(
+          id: 'VOLUME_SLIDER',
+          label: 'Ses Seviyesi',
+          icon: FluentIcons.speaker_2_24_filled,
+          defaultWidth: 180,
+          defaultHeight: 48,
+        ),
+      ],
+    ),
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.fromLTRB(20, 4, 20, 24),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              'Bileşen Ekle',
+              style: Theme.of(context).textTheme.headlineSmall,
+            ),
+            const SizedBox(height: 12),
+            for (final section in _sections) ...[
+              Padding(
+                padding: const EdgeInsets.only(top: 12, bottom: 4),
+                child: Text(
+                  section.title,
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
+              ),
+              ...section.options.map(
+                (option) => ListTile(
+                  leading: Icon(option.icon),
+                  title: Text(option.label),
+                  trailing: const Icon(FluentIcons.chevron_right_24_regular),
+                  onTap: () => Navigator.pop(context, option),
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ComponentOption {
+  const _ComponentOption({
+    required this.id,
+    required this.label,
+    required this.icon,
+    required this.defaultWidth,
+    required this.defaultHeight,
+  });
+
+  final String id;
+  final String label;
+  final IconData icon;
+  final double defaultWidth;
+  final double defaultHeight;
 }
 
 class _ElementEditorPanel extends StatefulWidget {
