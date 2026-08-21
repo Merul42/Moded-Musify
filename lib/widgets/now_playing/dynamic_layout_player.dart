@@ -343,7 +343,7 @@ class _InteractiveFeedbackState extends State<_InteractiveFeedback> {
 
   @override
   Widget build(BuildContext context) {
-    Widget child = widget.child;
+    var child = widget.child;
     if (widget.element.tapEffect == 'scale_down') {
       child = AnimatedScale(
         scale: _pressed ? 0.92 : 1,

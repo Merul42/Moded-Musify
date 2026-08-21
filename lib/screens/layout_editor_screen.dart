@@ -1189,7 +1189,7 @@ class _ElementEditorPanelState extends State<_ElementEditorPanel> {
             ),
             if (_isTextElement) ...[
               DropdownButtonFormField<String>(
-                value: _textAlignment,
+                initialValue: _textAlignment,
                 decoration: const InputDecoration(labelText: 'Metin Hizalama'),
                 items: const [
                   DropdownMenuItem(value: 'left', child: Text('Sol')),
@@ -1212,7 +1212,7 @@ class _ElementEditorPanelState extends State<_ElementEditorPanel> {
             ],
             const SizedBox(height: 12),
             DropdownButtonFormField<String?>(
-              value: _actionId,
+              initialValue: _actionId,
               decoration: const InputDecoration(
                 labelText: 'Buton Aksiyonu / İşlevi',
               ),
@@ -1238,7 +1238,7 @@ class _ElementEditorPanelState extends State<_ElementEditorPanel> {
               onChanged: (value) => setState(() => _hapticEnabled = value),
             ),
             DropdownButtonFormField<String>(
-              value: _tapEffect,
+              initialValue: _tapEffect,
               decoration: const InputDecoration(labelText: 'Tıklama Efekti'),
               items: const [
                 DropdownMenuItem(value: 'scale_down', child: Text('Ölçek Küçülme')),
