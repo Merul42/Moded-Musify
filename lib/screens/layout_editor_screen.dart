@@ -1839,7 +1839,6 @@ class _ElementEditorPanelState extends State<_ElementEditorPanel> {
                               crossAxisCount: 2,
                               mainAxisSpacing: 8,
                               crossAxisSpacing: 8,
-                              childAspectRatio: 1,
                             ),
                         itemCount: _tenorResults.length,
                         itemBuilder: (context, index) {
