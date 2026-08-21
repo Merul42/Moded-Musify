@@ -44,4 +44,26 @@ class ElementConfig {
       'actionId': actionId,
     };
   }
+
+  ElementConfig copyWith({
+    String? id,
+    double? x,
+    double? y,
+    double? width,
+    double? height,
+    String? colorHex,
+    String? customImagePath,
+    String? actionId,
+  }) {
+    return ElementConfig(
+      id: id ?? this.id,
+      x: x ?? this.x,
+      y: y ?? this.y,
+      width: width ?? this.width,
+      height: height ?? this.height,
+      colorHex: colorHex ?? this.colorHex,
+      customImagePath: customImagePath ?? this.customImagePath,
+      actionId: actionId ?? this.actionId,
+    );
+  }
 }
