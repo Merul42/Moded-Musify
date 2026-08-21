@@ -5,26 +5,46 @@
 // gestures. You can also use WidgetTester to find child widgets in the widget
 // tree, read text, and verify that the values of widget properties are correct.
 
-import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:material_ui/material_ui.dart';
 
-import 'package:musify/main.dart';
+import 'package:musify/localization/app_localizations.dart';
+import 'package:musify/models/element_config.dart';
+import 'package:musify/models/layout_slot.dart';
+import 'package:musify/screens/layout_editor_screen.dart';
 
 void main() {
-  testWidgets('Counter increments smoke test', (WidgetTester tester) async {
-    // Build our app and trigger a frame.
-    await tester.pumpWidget(const Musify());
+  testWidgets('Selecting an element shows resize handles in the layout editor', (
+    WidgetTester tester,
+  ) async {
+    const element = ElementConfig(
+      id: 'demo_title',
+      x: 40,
+      y: 60,
+      width: 140,
+      height: 36,
+      actionId: 'SONG_TITLE',
+    );
 
-    // Verify that our counter starts at 0.
-    expect(find.text('0'), findsOneWidget);
-    expect(find.text('1'), findsNothing);
+    await tester.pumpWidget(
+      MaterialApp(
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: LayoutEditorScreen(
+          slot: LayoutSlot(
+            slotId: 1,
+            slotName: 'Demo',
+            elements: [element],
+          ),
+        ),
+      ),
+    );
 
-    // Tap the '+' icon and trigger a frame.
-    await tester.tap(find.byIcon(Icons.add));
-    await tester.pump();
+    await tester.tap(find.byKey(const ValueKey('layout-element-demo_title')));
+    await tester.pumpAndSettle();
 
-    // Verify that our counter has incremented.
-    expect(find.text('0'), findsNothing);
-    expect(find.text('1'), findsOneWidget);
+    expect(find.byKey(const ValueKey('layout-element-demo_title')), findsOneWidget);
+    expect(find.byKey(const ValueKey('layout-resize-handle-demo_title-nw')), findsOneWidget);
+    expect(find.byKey(const ValueKey('layout-resize-handle-demo_title-se')), findsOneWidget);
   });
 }

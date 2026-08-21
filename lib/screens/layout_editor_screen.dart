@@ -131,13 +131,43 @@ class _LayoutEditorScreenState extends State<LayoutEditorScreen> {
                     builder: (context, snapshot) {
                       final metadata = snapshot.data;
                       if (metadata == null) return _buildPreviewFallback();
-                      return DynamicLayoutPlayer(
-                        slot: LayoutSlot(
-                          slotId: widget.slot.slotId,
-                          slotName: widget.slot.slotName,
-                          elements: _elements,
-                        ),
-                        metadata: metadata,
+                      return Stack(
+                        children: [
+                          DynamicLayoutPlayer(
+                            slot: LayoutSlot(
+                              slotId: widget.slot.slotId,
+                              slotName: widget.slot.slotName,
+                              elements: _elements,
+                            ),
+                            metadata: metadata,
+                          ),
+                          ..._elements.map(
+                            (element) => Positioned(
+                              left: element.x,
+                              top: element.y,
+                              width: element.width,
+                              height: element.height,
+                              child: GestureDetector(
+                                behavior: HitTestBehavior.opaque,
+                                onTapDown: (_) => setState(() => _selectedElementId = element.id),
+                                onTap: () => _editElement(element),
+                                child: IgnorePointer(
+                                  ignoring: false,
+                                  child: Container(
+                                    decoration: BoxDecoration(
+                                      border: Border.all(
+                                        color: element.id == _selectedElementId
+                                            ? Theme.of(context).colorScheme.primary
+                                            : Colors.transparent,
+                                        width: element.id == _selectedElementId ? 2 : 0,
+                                      ),
+                                      borderRadius: BorderRadius.circular(element.borderRadius),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            )),
+                        ],
                       );
                     },
                   )
@@ -171,35 +201,92 @@ class _LayoutEditorScreenState extends State<LayoutEditorScreen> {
       top: element.y,
       width: element.width,
       height: element.height,
-      child: GestureDetector(
-        onTap: () => _editElement(element),
-        onPanStart: (_) => setState(() => _selectedElementId = element.id),
-        onPanUpdate: (details) => _moveElement(element, details.delta, canvasSize),
-        onPanEnd: (_) => setState(() {
-          _verticalGuides = <double>[];
-          _horizontalGuides = <double>[];
-        }),
-        child: Opacity(
-          opacity: element.opacity.clamp(0.0, 1.0),
-          child: _EditorInteractiveFeedback(
-            element: element,
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                color: color.withValues(alpha: 0.82),
-                borderRadius: BorderRadius.circular(element.borderRadius),
-                border: Border.all(
-                  color: isSelected
-                      ? Theme.of(context).colorScheme.primary
-                      : color.withValues(alpha: 0.55),
-                  width: isSelected ? 2 : 1,
+      child: Stack(
+        children: [
+          GestureDetector(
+            key: ValueKey('layout-element-${element.id}'),
+            behavior: HitTestBehavior.opaque,
+            onTapDown: (_) => setState(() => _selectedElementId = element.id),
+            onTap: () => _editElement(element),
+            onPanStart: (_) => setState(() => _selectedElementId = element.id),
+            onPanUpdate: (details) => _moveElement(element, details.delta, canvasSize),
+            onPanEnd: (_) => setState(() {
+              _verticalGuides = <double>[];
+              _horizontalGuides = <double>[];
+            }),
+            child: Opacity(
+              opacity: element.opacity.clamp(0.0, 1.0),
+              child: _EditorInteractiveFeedback(
+                element: element,
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: color.withValues(alpha: 0.82),
+                    borderRadius: BorderRadius.circular(element.borderRadius),
+                    border: Border.all(
+                      color: isSelected
+                          ? Theme.of(context).colorScheme.primary
+                          : color.withValues(alpha: 0.55),
+                      width: isSelected ? 2 : 1,
+                    ),
+                  ),
+                  child: _buildElementContent(element, color),
                 ),
               ),
-              child: _buildElementContent(element, color),
+            ),
+          ),
+          if (isSelected)
+            ..._buildResizeHandles(element, canvasSize),
+        ],
+      ),
+    );
+  }
+
+  List<Widget> _buildResizeHandles(ElementConfig element, Size canvasSize) {
+    const handleSize = 14.0;
+    const handleOffset = 8.0;
+
+    return [
+      for (final handle in _ResizeHandlePosition.values)
+        Positioned(
+          key: ValueKey('layout-resize-handle-${element.id}-${handle.name}'),
+          left: handle == _ResizeHandlePosition.nw ||
+                  handle == _ResizeHandlePosition.sw
+              ? -handleOffset
+              : element.width - handleSize + handleOffset,
+          top: handle == _ResizeHandlePosition.nw ||
+                 handle == _ResizeHandlePosition.ne
+              ? -handleOffset
+              : element.height - handleSize + handleOffset,
+          child: GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onPanStart: (_) => setState(() => _selectedElementId = element.id),
+            onPanUpdate: (details) => _resizeElement(
+              element,
+              handle,
+              details.delta,
+              canvasSize,
+            ),
+            child: Container(
+              width: handleSize,
+              height: handleSize,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: Theme.of(context).colorScheme.primary,
+                border: Border.all(
+                  color: Theme.of(context).colorScheme.surface,
+                  width: 2,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.25),
+                    blurRadius: 6,
+                  ),
+                ],
+              ),
             ),
           ),
         ),
-      ),
-    );
+    ];
   }
 
   Widget _buildPreviewFallback() {
@@ -285,6 +372,54 @@ class _LayoutEditorScreenState extends State<LayoutEditorScreen> {
       );
       _verticalGuides = snapped.verticalGuides;
       _horizontalGuides = snapped.horizontalGuides;
+      _selectedElementId = element.id;
+    });
+  }
+
+  void _resizeElement(
+    ElementConfig element,
+    _ResizeHandlePosition handle,
+    Offset delta,
+    Size canvasSize,
+  ) {
+    const minSize = 16.0;
+    var left = element.x;
+    var top = element.y;
+    var right = element.x + element.width;
+    var bottom = element.y + element.height;
+
+    switch (handle) {
+      case _ResizeHandlePosition.nw:
+        left = (left + delta.dx).clamp(0.0, right - minSize);
+        top = (top + delta.dy).clamp(0.0, bottom - minSize);
+        break;
+      case _ResizeHandlePosition.ne:
+        right = (right + delta.dx).clamp(left + minSize, canvasSize.width);
+        top = (top + delta.dy).clamp(0.0, bottom - minSize);
+        break;
+      case _ResizeHandlePosition.sw:
+        left = (left + delta.dx).clamp(0.0, right - minSize);
+        bottom = (bottom + delta.dy).clamp(top + minSize, canvasSize.height);
+        break;
+      case _ResizeHandlePosition.se:
+        right = (right + delta.dx).clamp(left + minSize, canvasSize.width);
+        bottom = (bottom + delta.dy).clamp(top + minSize, canvasSize.height);
+        break;
+    }
+
+    final width = (right - left).clamp(minSize, canvasSize.width);
+    final height = (bottom - top).clamp(minSize, canvasSize.height);
+
+    setState(() {
+      _replaceElement(
+        element,
+        element.copyWith(
+          x: left.clamp(0.0, canvasSize.width - width),
+          y: top.clamp(0.0, canvasSize.height - height),
+          width: width,
+          height: height,
+        ),
+      );
       _selectedElementId = element.id;
     });
   }
@@ -469,7 +604,7 @@ class _LayoutEditorScreenState extends State<LayoutEditorScreen> {
     if (!mounted || template == null) return;
     setState(() {
       _elements = _templateElements(template);
-      _selectedElementId = null;
+      _selectedElementId = _elements.isNotEmpty ? _elements.first.id : null;
     });
     await _saveLayout();
   }
@@ -658,6 +793,8 @@ class _GuideMatch {
   final double offset;
   final double distance;
 }
+
+enum _ResizeHandlePosition { nw, ne, sw, se }
 
 class _LayoutGridPainter extends CustomPainter {
   const _LayoutGridPainter({
@@ -979,20 +1116,7 @@ class _EditorInteractiveFeedbackState
         child: child,
       );
     }
-    return GestureDetector(
-      onTapDown: (_) {
-        if (widget.element.hapticEnabled) HapticFeedback.lightImpact();
-        setState(() => _pressed = true);
-      },
-      onTapUp: (_) => setState(() => _pressed = false),
-      onTapCancel: () => setState(() => _pressed = false),
-      child: widget.element.tapEffect == 'ripple'
-          ? Material(
-              color: Colors.transparent,
-              child: InkWell(onTap: () {}, child: child),
-            )
-          : child,
-    );
+    return child;
   }
 }
 
@@ -1217,10 +1341,14 @@ class _ElementEditorPanelState extends State<_ElementEditorPanel> {
                 labelText: 'Buton Aksiyonu / İşlevi',
               ),
               items: const [
-                DropdownMenuItem<String?>(child: Text('Yok')),
+                DropdownMenuItem<String?>(value: null, child: Text('Yok')),
+                DropdownMenuItem(value: 'SONG_TITLE', child: Text('Şarkı Adı')),
+                DropdownMenuItem(value: 'ARTIST_NAME', child: Text('Sanatçı Adı')),
+                DropdownMenuItem(value: 'CURRENT_TIME', child: Text('Geçen Süre')),
+                DropdownMenuItem(value: 'TOTAL_TIME', child: Text('Toplam Süre')),
                 DropdownMenuItem(value: 'PLAY_PAUSE', child: Text('Oynat / Duraklat')),
-                DropdownMenuItem(value: 'NEXT', child: Text('Sonraki')),
-                DropdownMenuItem(value: 'PREVIOUS', child: Text('Önceki')),
+                DropdownMenuItem(value: 'NEXT_TRACK', child: Text('Sonraki Şarkı')),
+                DropdownMenuItem(value: 'PREVIOUS_TRACK', child: Text('Önceki Şarkı')),
                 DropdownMenuItem(value: 'LIKE', child: Text('Beğen')),
                 DropdownMenuItem(value: 'SHUFFLE', child: Text('Karıştır')),
                 DropdownMenuItem(value: 'REPEAT', child: Text('Tekrarla')),
