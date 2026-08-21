@@ -60,46 +60,65 @@ class _DynamicElement extends StatelessWidget {
     final color = _parseColor(element.colorHex);
     final componentId = element.actionId ?? element.id;
     if (componentId == 'BLUR_BACKGROUND') {
-      return BackdropFilter(
-        filter: ui.ImageFilter.blur(sigmaX: 12, sigmaY: 12),
-        child: ColoredBox(
-          color: (color ?? Theme.of(context).colorScheme.surface)
-              .withValues(alpha: 0.18),
+      return _styled(
+        context,
+        BackdropFilter(
+          filter: ui.ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+          child: ColoredBox(
+            color: (color ?? Theme.of(context).colorScheme.surface)
+                .withValues(alpha: 0.18),
+          ),
         ),
       );
     }
     if (componentId == 'NEON_FRAME' || componentId == 'EKRAN_CERCEVESI') {
       final frameColor = color ?? Theme.of(context).colorScheme.primary;
-      return DecoratedBox(
-        decoration: BoxDecoration(
-          border: Border.all(color: frameColor, width: 3),
-          boxShadow: [
-            BoxShadow(color: frameColor.withValues(alpha: 0.9), blurRadius: 12),
-            BoxShadow(color: frameColor.withValues(alpha: 0.55), blurRadius: 28),
-          ],
+      return _styled(
+        context,
+        DecoratedBox(
+          decoration: BoxDecoration(
+            border: Border.all(color: frameColor, width: 3),
+            boxShadow: [
+              BoxShadow(color: frameColor.withValues(alpha: 0.9), blurRadius: 12),
+              BoxShadow(color: frameColor.withValues(alpha: 0.55), blurRadius: 28),
+            ],
+          ),
         ),
       );
     }
     final action = _actionWidget(context);
     if (element.customImagePath == null || element.customImagePath!.isEmpty) {
-      return action;
+      return _styled(context, action);
     }
 
     final path = element.customImagePath!;
     final image = path.startsWith('http://') || path.startsWith('https://')
         ? Image.network(path, fit: BoxFit.cover)
         : Image.file(File(path), fit: BoxFit.cover);
-    return Stack(
-      fit: StackFit.expand,
-      children: [
-        ColorFiltered(
-          colorFilter: color == null
-              ? const ColorFilter.mode(Colors.transparent, BlendMode.dst)
-              : ColorFilter.mode(color, BlendMode.srcATop),
-          child: image,
-        ),
-        _actionWidget(context),
-      ],
+    return _styled(
+      context,
+      Stack(
+        fit: StackFit.expand,
+        children: [
+          ColorFiltered(
+            colorFilter: color == null
+                ? const ColorFilter.mode(Colors.transparent, BlendMode.dst)
+                : ColorFilter.mode(color, BlendMode.srcATop),
+            child: image,
+          ),
+          _actionWidget(context),
+        ],
+      ),
+    );
+  }
+
+  Widget _styled(BuildContext context, Widget child) {
+    return Opacity(
+      opacity: element.opacity.clamp(0.0, 1.0),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(element.borderRadius),
+        child: child,
+      ),
     );
   }
 
@@ -172,24 +191,43 @@ class _DynamicElement extends StatelessWidget {
       case 'PROGRESS_BAR':
         return const PositionSlider();
       case 'SONG_TITLE':
-        return Center(child: Text(metadata.title, textAlign: TextAlign.center));
+        return _textWidget(metadata.title);
       case 'ARTIST_NAME':
-        return Center(child: Text(metadata.artist ?? '', textAlign: TextAlign.center));
+        return _textWidget(metadata.artist ?? '');
       case 'ALBUM_ART':
         return _albumArt();
       case 'CURRENT_TIME':
         return StreamBuilder<PositionData>(
           stream: audioHandler.positionDataStream,
-          builder: (_, snapshot) => Text(_formatDuration(snapshot.data?.position)),
+          builder: (_, snapshot) => _textWidget(
+            _formatDuration(snapshot.data?.position),
+          ),
         );
       case 'TOTAL_TIME':
         return StreamBuilder<PositionData>(
           stream: audioHandler.positionDataStream,
-          builder: (_, snapshot) => Text(_formatDuration(snapshot.data?.duration)),
+          builder: (_, snapshot) => _textWidget(
+            _formatDuration(snapshot.data?.duration),
+          ),
         );
       default:
         return const SizedBox.shrink();
     }
+  }
+
+  Widget _textWidget(String text) {
+    final alignment = switch (element.textAlignment) {
+      'left' => TextAlign.left,
+      'right' => TextAlign.right,
+      _ => TextAlign.center,
+    };
+    return Center(
+      child: Text(
+        text,
+        textAlign: alignment,
+        style: TextStyle(fontSize: element.textSize),
+      ),
+    );
   }
 
   Widget _albumArt() {

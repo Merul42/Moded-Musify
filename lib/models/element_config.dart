@@ -8,6 +8,10 @@ class ElementConfig {
     this.colorHex,
     this.customImagePath,
     this.actionId,
+    this.borderRadius = 0,
+    this.opacity = 1,
+    this.textAlignment = 'center',
+    this.textSize = 16,
   });
 
   factory ElementConfig.fromJson(Map<String, dynamic> json) {
@@ -20,6 +24,10 @@ class ElementConfig {
       colorHex: json['colorHex'] as String?,
       customImagePath: json['customImagePath'] as String?,
       actionId: json['actionId'] as String?,
+      borderRadius: (json['borderRadius'] as num?)?.toDouble() ?? 0,
+      opacity: (json['opacity'] as num?)?.toDouble() ?? 1,
+      textAlignment: json['textAlignment'] as String? ?? 'center',
+      textSize: (json['textSize'] as num?)?.toDouble() ?? 16,
     );
   }
 
@@ -31,6 +39,10 @@ class ElementConfig {
   final String? colorHex;
   final String? customImagePath;
   final String? actionId;
+  final double borderRadius;
+  final double opacity;
+  final String textAlignment;
+  final double textSize;
 
   Map<String, dynamic> toJson() {
     return {
@@ -42,6 +54,10 @@ class ElementConfig {
       'colorHex': colorHex,
       'customImagePath': customImagePath,
       'actionId': actionId,
+      'borderRadius': borderRadius,
+      'opacity': opacity,
+      'textAlignment': textAlignment,
+      'textSize': textSize,
     };
   }
 
@@ -54,6 +70,10 @@ class ElementConfig {
     String? colorHex,
     String? customImagePath,
     String? actionId,
+    double? borderRadius,
+    double? opacity,
+    String? textAlignment,
+    double? textSize,
   }) {
     return ElementConfig(
       id: id ?? this.id,
@@ -64,6 +84,10 @@ class ElementConfig {
       colorHex: colorHex ?? this.colorHex,
       customImagePath: customImagePath ?? this.customImagePath,
       actionId: actionId ?? this.actionId,
+      borderRadius: borderRadius ?? this.borderRadius,
+      opacity: opacity ?? this.opacity,
+      textAlignment: textAlignment ?? this.textAlignment,
+      textSize: textSize ?? this.textSize,
     );
   }
 }

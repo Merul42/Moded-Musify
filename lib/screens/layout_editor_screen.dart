@@ -167,17 +167,21 @@ class _LayoutEditorScreenState extends State<LayoutEditorScreen> {
           _verticalGuides = <double>[];
           _horizontalGuides = <double>[];
         }),
-        child: DecoratedBox(
-          decoration: BoxDecoration(
-            color: color.withValues(alpha: 0.82),
-            border: Border.all(
-              color: isSelected
-                  ? Theme.of(context).colorScheme.primary
-                  : color.withValues(alpha: 0.55),
-              width: isSelected ? 2 : 1,
+        child: Opacity(
+          opacity: element.opacity.clamp(0.0, 1.0),
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.82),
+              borderRadius: BorderRadius.circular(element.borderRadius),
+              border: Border.all(
+                color: isSelected
+                    ? Theme.of(context).colorScheme.primary
+                    : color.withValues(alpha: 0.55),
+                width: isSelected ? 2 : 1,
+              ),
             ),
+            child: _buildElementContent(element, color),
           ),
-          child: _buildElementContent(element, color),
         ),
       ),
     );
@@ -219,7 +223,10 @@ class _LayoutEditorScreenState extends State<LayoutEditorScreen> {
           : Image.file(File(imagePath), fit: BoxFit.cover);
       return ColorFiltered(
         colorFilter: ColorFilter.mode(color, BlendMode.srcATop),
-        child: image,
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(element.borderRadius),
+          child: image,
+        ),
       );
     }
 
@@ -230,9 +237,11 @@ class _LayoutEditorScreenState extends State<LayoutEditorScreen> {
           padding: const EdgeInsets.all(6),
           child: Text(
             _elementLabel(element.id),
+            textAlign: _textAlign(element.textAlignment),
             style: TextStyle(
               color: Theme.of(context).colorScheme.onPrimaryContainer,
               fontWeight: FontWeight.w600,
+              fontSize: element.textSize,
             ),
           ),
         ),
@@ -449,6 +458,17 @@ class _LayoutEditorScreenState extends State<LayoutEditorScreen> {
     final normalized = hex.length == 6 ? 'FF$hex' : hex;
     final color = int.tryParse(normalized, radix: 16);
     return color == null ? null : Color(color);
+  }
+
+  TextAlign _textAlign(String value) {
+    switch (value) {
+      case 'left':
+        return TextAlign.left;
+      case 'right':
+        return TextAlign.right;
+      default:
+        return TextAlign.center;
+    }
   }
 }
 
@@ -799,6 +819,10 @@ class _ElementEditorPanelState extends State<_ElementEditorPanel> {
   late final TextEditingController _imageUrlController;
   String? _customImagePath;
   bool _isPickingImage = false;
+  late double _borderRadius;
+  late double _opacity;
+  late String _textAlignment;
+  late double _textSize;
 
   @override
   void initState() {
@@ -815,6 +839,10 @@ class _ElementEditorPanelState extends State<_ElementEditorPanel> {
           : '',
     );
     _customImagePath = element.customImagePath;
+    _borderRadius = element.borderRadius;
+    _opacity = element.opacity;
+    _textAlignment = element.textAlignment;
+    _textSize = element.textSize;
   }
 
   @override
@@ -845,7 +873,8 @@ class _ElementEditorPanelState extends State<_ElementEditorPanel> {
           20,
           20 + MediaQuery.viewInsetsOf(context).bottom,
         ),
-        child: Column(
+        child: SingleChildScrollView(
+          child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
@@ -861,6 +890,48 @@ class _ElementEditorPanelState extends State<_ElementEditorPanel> {
               physics: const NeverScrollableScrollPhysics(),
               children: fields,
             ),
+            const SizedBox(height: 8),
+            _sliderField(
+              label: 'Köşe Yuvarlama',
+              value: _borderRadius,
+              min: 0,
+              max: 50,
+              divisions: 50,
+              suffix: _borderRadius.toStringAsFixed(0),
+              onChanged: (value) => setState(() => _borderRadius = value),
+            ),
+            _sliderField(
+              label: 'Saydamlık',
+              value: _opacity,
+              min: 0,
+              max: 1,
+              divisions: 20,
+              suffix: _opacity.toStringAsFixed(2),
+              onChanged: (value) => setState(() => _opacity = value),
+            ),
+            if (_isTextElement) ...[
+              DropdownButtonFormField<String>(
+                value: _textAlignment,
+                decoration: const InputDecoration(labelText: 'Metin Hizalama'),
+                items: const [
+                  DropdownMenuItem(value: 'left', child: Text('Sol')),
+                  DropdownMenuItem(value: 'center', child: Text('Orta')),
+                  DropdownMenuItem(value: 'right', child: Text('Sağ')),
+                ],
+                onChanged: (value) {
+                  if (value != null) setState(() => _textAlignment = value);
+                },
+              ),
+              _sliderField(
+                label: 'Punto Boyutu',
+                value: _textSize,
+                min: 8,
+                max: 48,
+                divisions: 40,
+                suffix: _textSize.toStringAsFixed(0),
+                onChanged: (value) => setState(() => _textSize = value),
+              ),
+            ],
             const SizedBox(height: 8),
             TextField(
               controller: _colorController,
@@ -878,8 +949,8 @@ class _ElementEditorPanelState extends State<_ElementEditorPanel> {
               label: Text(
                 _customImagePath != null &&
                         !_customImagePath!.startsWith('http')
-                    ? 'Özel Görseli Değiştir'
-                    : 'Özel Görsel Ekle',
+                    ? 'Özel Görseli Değiştir (PNG/JPG/GIF)'
+                    : 'Özel Görsel / PNG / GIF Yükle',
               ),
             ),
             if (_customImagePath != null &&
@@ -910,6 +981,7 @@ class _ElementEditorPanelState extends State<_ElementEditorPanel> {
               child: const Text('Uygula'),
             ),
           ],
+          ),
         ),
       ),
     );
@@ -919,7 +991,8 @@ class _ElementEditorPanelState extends State<_ElementEditorPanel> {
     setState(() => _isPickingImage = true);
     try {
       final result = await FilePicker.pickFile(
-        type: FileType.image,
+        type: FileType.custom,
+        allowedExtensions: ['png', 'jpg', 'jpeg', 'gif'],
       );
       final pickedPath = result?.path;
       if (pickedPath == null) return;
@@ -975,7 +1048,43 @@ class _ElementEditorPanelState extends State<_ElementEditorPanel> {
             : _colorController.text.trim(),
         customImagePath: _customImagePath,
         actionId: widget.element.actionId,
+        borderRadius: _borderRadius,
+        opacity: _opacity,
+        textAlignment: _textAlignment,
+        textSize: _textSize,
       ),
+    );
+  }
+
+  bool get _isTextElement {
+    const textIds = {'SONG_TITLE', 'ARTIST_NAME', 'CURRENT_TIME', 'TOTAL_TIME'};
+    return textIds.contains(widget.element.actionId ?? widget.element.id);
+  }
+
+  Widget _sliderField({
+    required String label,
+    required double value,
+    required double min,
+    required double max,
+    required int divisions,
+    required String suffix,
+    required ValueChanged<double> onChanged,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [Text(label), Text(suffix)],
+        ),
+        Slider(
+          value: value.clamp(min, max),
+          min: min,
+          max: max,
+          divisions: divisions,
+          onChanged: onChanged,
+        ),
+      ],
     );
   }
 }
