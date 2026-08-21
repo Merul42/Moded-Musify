@@ -1,7 +1,11 @@
+import 'dart:io';
+
 import 'package:fluentui_system_icons/fluentui_system_icons.dart';
+import 'package:file_picker/file_picker.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:musify/models/element_config.dart';
 import 'package:musify/models/layout_slot.dart';
+import 'package:musify/services/io_service.dart';
 import 'package:musify/services/layout_repository.dart';
 
 class LayoutEditorScreen extends StatefulWidget {
@@ -111,19 +115,35 @@ class _LayoutEditorScreenState extends State<LayoutEditorScreen> {
               width: isSelected ? 2 : 1,
             ),
           ),
-          child: Center(
-            child: FittedBox(
-              fit: BoxFit.scaleDown,
-              child: Padding(
-                padding: const EdgeInsets.all(6),
-                child: Text(
-                  _elementLabel(element.id),
-                  style: TextStyle(
-                    color: Theme.of(context).colorScheme.onPrimaryContainer,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
+          child: _buildElementContent(element, color),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildElementContent(ElementConfig element, Color color) {
+    final imagePath = element.customImagePath;
+    if (imagePath != null && imagePath.isNotEmpty) {
+      final image = imagePath.startsWith('http://') ||
+              imagePath.startsWith('https://')
+          ? Image.network(imagePath, fit: BoxFit.cover)
+          : Image.file(File(imagePath), fit: BoxFit.cover);
+      return ColorFiltered(
+        colorFilter: ColorFilter.mode(color, BlendMode.srcATop),
+        child: image,
+      );
+    }
+
+    return Center(
+      child: FittedBox(
+        fit: BoxFit.scaleDown,
+        child: Padding(
+          padding: const EdgeInsets.all(6),
+          child: Text(
+            _elementLabel(element.id),
+            style: TextStyle(
+              color: Theme.of(context).colorScheme.onPrimaryContainer,
+              fontWeight: FontWeight.w600,
             ),
           ),
         ),
@@ -315,6 +335,9 @@ class _ElementEditorPanelState extends State<_ElementEditorPanel> {
   late final TextEditingController _widthController;
   late final TextEditingController _heightController;
   late final TextEditingController _colorController;
+  late final TextEditingController _imageUrlController;
+  String? _customImagePath;
+  bool _isPickingImage = false;
 
   @override
   void initState() {
@@ -325,6 +348,12 @@ class _ElementEditorPanelState extends State<_ElementEditorPanel> {
     _widthController = TextEditingController(text: element.width.toString());
     _heightController = TextEditingController(text: element.height.toString());
     _colorController = TextEditingController(text: element.colorHex ?? '');
+    _imageUrlController = TextEditingController(
+      text: element.customImagePath?.startsWith('http') == true
+          ? element.customImagePath
+          : '',
+    );
+    _customImagePath = element.customImagePath;
   }
 
   @override
@@ -334,6 +363,7 @@ class _ElementEditorPanelState extends State<_ElementEditorPanel> {
     _widthController.dispose();
     _heightController.dispose();
     _colorController.dispose();
+    _imageUrlController.dispose();
     super.dispose();
   }
 
@@ -380,6 +410,39 @@ class _ElementEditorPanelState extends State<_ElementEditorPanel> {
               ),
               textInputAction: TextInputAction.done,
             ),
+            const SizedBox(height: 12),
+            OutlinedButton.icon(
+              onPressed: _isPickingImage ? null : _pickImage,
+              icon: const Icon(FluentIcons.image_add_24_filled),
+              label: Text(
+                _customImagePath != null &&
+                        !_customImagePath!.startsWith('http')
+                    ? 'Özel Görseli Değiştir'
+                    : 'Özel Görsel Ekle',
+              ),
+            ),
+            if (_customImagePath != null &&
+                !_customImagePath!.startsWith('http'))
+              Text(
+                _customImagePath!,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+            const SizedBox(height: 8),
+            TextField(
+              controller: _imageUrlController,
+              decoration: const InputDecoration(
+                labelText: 'Görsel URL (isteğe bağlı)',
+                hintText: 'https://ornek.com/gorsel.png',
+                prefixIcon: Icon(FluentIcons.globe_24_filled),
+              ),
+              keyboardType: TextInputType.url,
+              onChanged: (value) {
+                final url = value.trim();
+                setState(() => _customImagePath = url.isEmpty ? null : url);
+              },
+            ),
             const SizedBox(height: 20),
             FilledButton(
               onPressed: _apply,
@@ -389,6 +452,34 @@ class _ElementEditorPanelState extends State<_ElementEditorPanel> {
         ),
       ),
     );
+  }
+
+  Future<void> _pickImage() async {
+    setState(() => _isPickingImage = true);
+    try {
+      final result = await FilePicker.platform.pickFiles(
+        type: FileType.image,
+        allowMultiple: false,
+      );
+      final pickedPath = result?.files.single.path;
+      if (pickedPath == null) return;
+
+      final imageDirectory = Directory('$applicationDirPath/layout_images');
+      await imageDirectory.create(recursive: true);
+      final source = File(pickedPath);
+      final fileName = pickedPath.split(Platform.pathSeparator).last;
+      final destination = File(
+        '${imageDirectory.path}/${DateTime.now().microsecondsSinceEpoch}_$fileName',
+      );
+      final copiedFile = await source.copy(destination.path);
+      if (!mounted) return;
+      setState(() {
+        _customImagePath = copiedFile.path;
+        _imageUrlController.clear();
+      });
+    } finally {
+      if (mounted) setState(() => _isPickingImage = false);
+    }
   }
 
   Widget _numberField(String label, TextEditingController controller) {
@@ -422,7 +513,7 @@ class _ElementEditorPanelState extends State<_ElementEditorPanel> {
         colorHex: _colorController.text.trim().isEmpty
             ? null
             : _colorController.text.trim(),
-        customImagePath: widget.element.customImagePath,
+        customImagePath: _customImagePath,
         actionId: widget.element.actionId,
       ),
     );
