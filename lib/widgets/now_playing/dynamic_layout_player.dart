@@ -3,16 +3,20 @@ import 'dart:ui' as ui;
 
 import 'package:audio_service/audio_service.dart';
 import 'package:fluentui_system_icons/fluentui_system_icons.dart';
+import 'package:flutter/services.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:musify/main.dart';
 import 'package:musify/models/element_config.dart';
 import 'package:musify/models/layout_slot.dart';
 import 'package:musify/models/position_data.dart';
+import 'package:musify/screens/equalizer_page.dart';
 import 'package:musify/services/common_services.dart';
 import 'package:musify/services/settings_manager.dart';
 import 'package:musify/widgets/playback_icon_button.dart';
 import 'package:musify/widgets/position_slider.dart';
 import 'package:musify/widgets/queue_list_view.dart';
+
+bool _layoutPlayerMuted = false;
 
 class DynamicLayoutPlayer extends StatelessWidget {
   const DynamicLayoutPlayer({required this.slot, required this.metadata, super.key});
@@ -88,7 +92,7 @@ class _DynamicElement extends StatelessWidget {
     }
     final action = _actionWidget(context);
     if (element.customImagePath == null || element.customImagePath!.isEmpty) {
-      return _styled(context, action);
+      return _styled(context, _InteractiveFeedback(element: element, child: action));
     }
 
     final path = element.customImagePath!;
@@ -97,7 +101,9 @@ class _DynamicElement extends StatelessWidget {
         : Image.file(File(path), fit: BoxFit.cover);
     return _styled(
       context,
-      Stack(
+      _InteractiveFeedback(
+        element: element,
+        child: Stack(
         fit: StackFit.expand,
         children: [
           ColorFiltered(
@@ -108,6 +114,7 @@ class _DynamicElement extends StatelessWidget {
           ),
           _actionWidget(context),
         ],
+        ),
       ),
     );
   }
@@ -131,12 +138,14 @@ class _DynamicElement extends StatelessWidget {
           backgroundColor: Theme.of(context).colorScheme.primary,
         );
       case 'NEXT_TRACK':
+      case 'NEXT':
         return _controlButton(
           context,
           FluentIcons.next_24_regular,
           audioHandler.skipToNext,
         );
       case 'PREVIOUS_TRACK':
+      case 'PREVIOUS':
         return _controlButton(
           context,
           FluentIcons.previous_24_regular,
@@ -187,7 +196,41 @@ class _DynamicElement extends StatelessWidget {
           },
         );
       case 'QUEUE':
-        return const QueueWidget(isBottomSheet: true);
+      case 'OPEN_QUEUE':
+        return _controlButton(
+          context,
+          FluentIcons.list_24_filled,
+          () => showModalBottomSheet<void>(
+            context: context,
+            builder: (_) => const QueueWidget(isBottomSheet: true),
+          ),
+        );
+      case 'OPEN_LYRICS':
+        return _controlButton(
+          context,
+          FluentIcons.text_quote_24_filled,
+          () => _showLyrics(context),
+        );
+      case 'TOGGLE_EQUALIZER':
+        return _controlButton(
+          context,
+          FluentIcons.options_24_filled,
+          () => Navigator.of(context).push(
+            MaterialPageRoute<void>(builder: (_) => const EqualizerPage()),
+          ),
+        );
+      case 'MUTE_UNMUTE':
+        return _controlButton(
+          context,
+          _layoutPlayerMuted
+              ? FluentIcons.speaker_off_24_filled
+              : FluentIcons.speaker_2_24_filled,
+          () {
+            _layoutPlayerMuted = !_layoutPlayerMuted;
+            audioHandler.audioPlayer.setVolume(_layoutPlayerMuted ? 0 : 1);
+          },
+          active: _layoutPlayerMuted,
+        );
       case 'PROGRESS_BAR':
         return const PositionSlider();
       case 'SONG_TITLE':
@@ -251,6 +294,27 @@ class _DynamicElement extends StatelessWidget {
     );
   }
 
+  Future<void> _showLyrics(BuildContext context) async {
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      builder: (context) => SafeArea(
+        child: FutureBuilder<String?>(
+          future: getSongLyrics(metadata.artist, metadata.title),
+          builder: (context, snapshot) => Padding(
+            padding: const EdgeInsets.all(24),
+            child: SingleChildScrollView(
+              child: Text(
+                snapshot.data ?? 'Şarkı sözleri bulunamadı.',
+                textAlign: TextAlign.center,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   String _formatDuration(Duration? duration) {
     if (duration == null) return '0:00';
     final minutes = duration.inMinutes;
@@ -264,5 +328,63 @@ class _DynamicElement extends StatelessWidget {
     final normalized = hex.length == 6 ? 'FF$hex' : hex;
     final number = int.tryParse(normalized, radix: 16);
     return number == null ? null : Color(number);
+  }
+}
+
+class _InteractiveFeedback extends StatefulWidget {
+  const _InteractiveFeedback({required this.element, required this.child});
+
+  final ElementConfig element;
+  final Widget child;
+
+  @override
+  State<_InteractiveFeedback> createState() => _InteractiveFeedbackState();
+}
+
+class _InteractiveFeedbackState extends State<_InteractiveFeedback> {
+  bool _pressed = false;
+
+  @override
+  Widget build(BuildContext context) {
+    Widget child = widget.child;
+    if (widget.element.tapEffect == 'scale_down') {
+      child = AnimatedScale(
+        scale: _pressed ? 0.92 : 1,
+        duration: const Duration(milliseconds: 120),
+        child: child,
+      );
+    } else if (widget.element.tapEffect == 'glow_flash') {
+      child = AnimatedContainer(
+        duration: const Duration(milliseconds: 160),
+        decoration: BoxDecoration(
+          boxShadow: _pressed
+              ? [
+                  BoxShadow(
+                    color: Theme.of(context).colorScheme.primary,
+                    blurRadius: 18,
+                  ),
+                ]
+              : null,
+        ),
+        child: child,
+      );
+    }
+    return GestureDetector(
+      onTapDown: (_) {
+        if (widget.element.hapticEnabled) HapticFeedback.lightImpact();
+        setState(() => _pressed = true);
+      },
+      onTapUp: (_) => setState(() => _pressed = false),
+      onTapCancel: () => setState(() => _pressed = false),
+      child: widget.element.tapEffect == 'ripple'
+          ? Material(
+              color: Colors.transparent,
+              child: InkWell(
+                onTap: () {},
+                child: child,
+              ),
+            )
+          : child,
+    );
   }
 }

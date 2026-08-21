@@ -12,6 +12,8 @@ class ElementConfig {
     this.opacity = 1,
     this.textAlignment = 'center',
     this.textSize = 16,
+    this.hapticEnabled = true,
+    this.tapEffect = 'scale_down',
   });
 
   factory ElementConfig.fromJson(Map<String, dynamic> json) {
@@ -28,6 +30,8 @@ class ElementConfig {
       opacity: (json['opacity'] as num?)?.toDouble() ?? 1,
       textAlignment: json['textAlignment'] as String? ?? 'center',
       textSize: (json['textSize'] as num?)?.toDouble() ?? 16,
+      hapticEnabled: json['hapticEnabled'] as bool? ?? true,
+      tapEffect: json['tapEffect'] as String? ?? 'scale_down',
     );
   }
 
@@ -43,6 +47,8 @@ class ElementConfig {
   final double opacity;
   final String textAlignment;
   final double textSize;
+  final bool hapticEnabled;
+  final String tapEffect;
 
   Map<String, dynamic> toJson() {
     return {
@@ -58,6 +64,8 @@ class ElementConfig {
       'opacity': opacity,
       'textAlignment': textAlignment,
       'textSize': textSize,
+      'hapticEnabled': hapticEnabled,
+      'tapEffect': tapEffect,
     };
   }
 
@@ -74,6 +82,8 @@ class ElementConfig {
     double? opacity,
     String? textAlignment,
     double? textSize,
+    bool? hapticEnabled,
+    String? tapEffect,
   }) {
     return ElementConfig(
       id: id ?? this.id,
@@ -88,6 +98,8 @@ class ElementConfig {
       opacity: opacity ?? this.opacity,
       textAlignment: textAlignment ?? this.textAlignment,
       textSize: textSize ?? this.textSize,
+      hapticEnabled: hapticEnabled ?? this.hapticEnabled,
+      tapEffect: tapEffect ?? this.tapEffect,
     );
   }
 }

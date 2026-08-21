@@ -4,6 +4,7 @@ import 'dart:ui' as ui;
 import 'package:audio_service/audio_service.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:fluentui_system_icons/fluentui_system_icons.dart';
+import 'package:flutter/services.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:musify/main.dart';
 import 'package:musify/models/element_config.dart';
@@ -169,18 +170,21 @@ class _LayoutEditorScreenState extends State<LayoutEditorScreen> {
         }),
         child: Opacity(
           opacity: element.opacity.clamp(0.0, 1.0),
-          child: DecoratedBox(
-            decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.82),
-              borderRadius: BorderRadius.circular(element.borderRadius),
-              border: Border.all(
-                color: isSelected
-                    ? Theme.of(context).colorScheme.primary
-                    : color.withValues(alpha: 0.55),
-                width: isSelected ? 2 : 1,
+          child: _EditorInteractiveFeedback(
+            element: element,
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                color: color.withValues(alpha: 0.82),
+                borderRadius: BorderRadius.circular(element.borderRadius),
+                border: Border.all(
+                  color: isSelected
+                      ? Theme.of(context).colorScheme.primary
+                      : color.withValues(alpha: 0.55),
+                  width: isSelected ? 2 : 1,
+                ),
               ),
+              child: _buildElementContent(element, color),
             ),
-            child: _buildElementContent(element, color),
           ),
         ),
       ),
@@ -724,6 +728,63 @@ class _ComponentOption {
   final double defaultHeight;
 }
 
+class _EditorInteractiveFeedback extends StatefulWidget {
+  const _EditorInteractiveFeedback({required this.element, required this.child});
+
+  final ElementConfig element;
+  final Widget child;
+
+  @override
+  State<_EditorInteractiveFeedback> createState() =>
+      _EditorInteractiveFeedbackState();
+}
+
+class _EditorInteractiveFeedbackState
+    extends State<_EditorInteractiveFeedback> {
+  bool _pressed = false;
+
+  @override
+  Widget build(BuildContext context) {
+    Widget child = widget.child;
+    if (widget.element.tapEffect == 'scale_down') {
+      child = AnimatedScale(
+        scale: _pressed ? 0.92 : 1,
+        duration: const Duration(milliseconds: 120),
+        child: child,
+      );
+    } else if (widget.element.tapEffect == 'glow_flash') {
+      child = AnimatedContainer(
+        duration: const Duration(milliseconds: 160),
+        decoration: BoxDecoration(
+          boxShadow: _pressed
+              ? [
+                  BoxShadow(
+                    color: Theme.of(context).colorScheme.primary,
+                    blurRadius: 18,
+                  ),
+                ]
+              : null,
+        ),
+        child: child,
+      );
+    }
+    return GestureDetector(
+      onTapDown: (_) {
+        if (widget.element.hapticEnabled) HapticFeedback.lightImpact();
+        setState(() => _pressed = true);
+      },
+      onTapUp: (_) => setState(() => _pressed = false),
+      onTapCancel: () => setState(() => _pressed = false),
+      child: widget.element.tapEffect == 'ripple'
+          ? Material(
+              color: Colors.transparent,
+              child: InkWell(onTap: () {}, child: child),
+            )
+          : child,
+    );
+  }
+}
+
 class _LayersSheet extends StatefulWidget {
   const _LayersSheet({required this.elements, required this.onChanged});
 
@@ -823,6 +884,9 @@ class _ElementEditorPanelState extends State<_ElementEditorPanel> {
   late double _opacity;
   late String _textAlignment;
   late double _textSize;
+  late bool _hapticEnabled;
+  late String _tapEffect;
+  late String? _actionId;
 
   @override
   void initState() {
@@ -843,6 +907,9 @@ class _ElementEditorPanelState extends State<_ElementEditorPanel> {
     _opacity = element.opacity;
     _textAlignment = element.textAlignment;
     _textSize = element.textSize;
+    _hapticEnabled = element.hapticEnabled;
+    _tapEffect = element.tapEffect;
+    _actionId = element.actionId;
   }
 
   @override
@@ -932,6 +999,45 @@ class _ElementEditorPanelState extends State<_ElementEditorPanel> {
                 onChanged: (value) => setState(() => _textSize = value),
               ),
             ],
+            const SizedBox(height: 12),
+            DropdownButtonFormField<String?>(
+              value: _actionId,
+              decoration: const InputDecoration(
+                labelText: 'Buton Aksiyonu / İşlevi',
+              ),
+              items: const [
+                DropdownMenuItem<String?>(value: null, child: Text('Yok')),
+                DropdownMenuItem(value: 'PLAY_PAUSE', child: Text('Oynat / Duraklat')),
+                DropdownMenuItem(value: 'NEXT', child: Text('Sonraki')),
+                DropdownMenuItem(value: 'PREVIOUS', child: Text('Önceki')),
+                DropdownMenuItem(value: 'LIKE', child: Text('Beğen')),
+                DropdownMenuItem(value: 'SHUFFLE', child: Text('Karıştır')),
+                DropdownMenuItem(value: 'REPEAT', child: Text('Tekrarla')),
+                DropdownMenuItem(value: 'OPEN_QUEUE', child: Text('Sırayı Aç')),
+                DropdownMenuItem(value: 'OPEN_LYRICS', child: Text('Şarkı Sözlerini Aç')),
+                DropdownMenuItem(value: 'TOGGLE_EQUALIZER', child: Text('Ekolayzeri Aç / Kapat')),
+                DropdownMenuItem(value: 'MUTE_UNMUTE', child: Text('Sessize Al / Sesi Aç')),
+              ],
+              onChanged: (value) => setState(() => _actionId = value),
+            ),
+            SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              title: const Text('Dokunma Titreşimi'),
+              value: _hapticEnabled,
+              onChanged: (value) => setState(() => _hapticEnabled = value),
+            ),
+            DropdownButtonFormField<String>(
+              value: _tapEffect,
+              decoration: const InputDecoration(labelText: 'Tıklama Efekti'),
+              items: const [
+                DropdownMenuItem(value: 'scale_down', child: Text('Ölçek Küçülme')),
+                DropdownMenuItem(value: 'ripple', child: Text('Ripple / Su Dalgası')),
+                DropdownMenuItem(value: 'glow_flash', child: Text('Parlama / Glow Flash')),
+              ],
+              onChanged: (value) {
+                if (value != null) setState(() => _tapEffect = value);
+              },
+            ),
             const SizedBox(height: 8),
             TextField(
               controller: _colorController,
@@ -1047,11 +1153,13 @@ class _ElementEditorPanelState extends State<_ElementEditorPanel> {
             ? null
             : _colorController.text.trim(),
         customImagePath: _customImagePath,
-        actionId: widget.element.actionId,
+        actionId: _actionId,
         borderRadius: _borderRadius,
         opacity: _opacity,
         textAlignment: _textAlignment,
         textSize: _textSize,
+        hapticEnabled: _hapticEnabled,
+        tapEffect: _tapEffect,
       ),
     );
   }
