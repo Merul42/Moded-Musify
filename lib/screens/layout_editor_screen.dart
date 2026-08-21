@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:convert';
 import 'dart:ui' as ui;
 
 import 'package:audio_service/audio_service.dart';
@@ -82,6 +83,16 @@ class _LayoutEditorScreenState extends State<LayoutEditorScreen> {
             tooltip: 'Katmanlar',
             icon: const Icon(FluentIcons.layer_24_filled),
             onPressed: _showLayersSheet,
+          ),
+          IconButton(
+            tooltip: 'Şablonlar',
+            icon: const Icon(FluentIcons.book_template_24_filled),
+            onPressed: _showTemplatesSheet,
+          ),
+          IconButton(
+            tooltip: 'Tasarımı Paylaş / Aktar',
+            icon: const Icon(FluentIcons.share_24_filled),
+            onPressed: _showTransferSheet,
           ),
           const SizedBox(width: 12),
         ],
@@ -449,6 +460,156 @@ class _LayoutEditorScreenState extends State<LayoutEditorScreen> {
     await _saveLayout();
   }
 
+  Future<void> _showTemplatesSheet() async {
+    final template = await showModalBottomSheet<_LayoutTemplate>(
+      context: context,
+      showDragHandle: true,
+      builder: (context) => const _TemplatesSheet(),
+    );
+    if (!mounted || template == null) return;
+    setState(() {
+      _elements = _templateElements(template);
+      _selectedElementId = null;
+    });
+    await _saveLayout();
+  }
+
+  Future<void> _showTransferSheet() async {
+    final action = await showModalBottomSheet<String>(
+      context: context,
+      showDragHandle: true,
+      builder: (context) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(FluentIcons.copy_24_filled),
+              title: const Text('JSON Dışa Aktar'),
+              onTap: () => Navigator.pop(context, 'export'),
+            ),
+            ListTile(
+              leading: const Icon(FluentIcons.clipboard_paste_24_filled),
+              title: const Text('JSON İçe Aktar'),
+              onTap: () => Navigator.pop(context, 'import'),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (!mounted) return;
+    if (action == 'export') {
+      await _exportLayout();
+    } else if (action == 'import') {
+      await _importLayout();
+    }
+  }
+
+  Future<void> _exportLayout() async {
+    final json = const JsonEncoder.withIndent('  ').convert(
+      LayoutSlot(
+        slotId: widget.slot.slotId,
+        slotName: widget.slot.slotName,
+        elements: _elements,
+      ).toJson(),
+    );
+    await Clipboard.setData(ClipboardData(text: json));
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Tasarım JSON olarak panoya kopyalandı.')),
+    );
+  }
+
+  Future<void> _importLayout() async {
+    final controller = TextEditingController();
+    final json = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('JSON İçe Aktar'),
+        content: TextField(
+          controller: controller,
+          maxLines: 12,
+          decoration: const InputDecoration(
+            hintText: '{"elements": [...]}',
+            border: OutlineInputBorder(),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('İptal'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, controller.text),
+            child: const Text('İçe Aktar'),
+          ),
+        ],
+      ),
+    );
+    controller.dispose();
+    if (!mounted || json == null || json.trim().isEmpty) return;
+
+    try {
+      final decoded = jsonDecode(json);
+      final rawElements = decoded is Map ? decoded['elements'] : decoded;
+      if (rawElements is! List) throw const FormatException('elements bulunamadı');
+      final elements = rawElements
+          .map((element) => ElementConfig.fromJson(
+                Map<String, dynamic>.from(element as Map),
+              ))
+          .toList();
+      setState(() {
+        _elements = elements;
+        _selectedElementId = null;
+      });
+      await _saveLayout();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Tasarım içe aktarıldı.')),
+      );
+    } catch (_) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Geçersiz layout JSON verisi.')),
+      );
+    }
+  }
+
+  List<ElementConfig> _templateElements(_LayoutTemplate template) {
+    switch (template) {
+      case _LayoutTemplate.classic:
+        return const [
+          ElementConfig(id: 'classic_blur', actionId: 'BLUR_BACKGROUND', x: 0, y: 0, width: 360, height: 640),
+          ElementConfig(id: 'classic_art', actionId: 'ALBUM_ART', x: 40, y: 44, width: 280, height: 280, borderRadius: 24),
+          ElementConfig(id: 'classic_title', actionId: 'SONG_TITLE', x: 40, y: 350, width: 280, height: 44, textSize: 20),
+          ElementConfig(id: 'classic_artist', actionId: 'ARTIST_NAME', x: 40, y: 394, width: 280, height: 32, opacity: 0.7),
+          ElementConfig(id: 'classic_progress', actionId: 'PROGRESS_BAR', x: 32, y: 450, width: 296, height: 48),
+          ElementConfig(id: 'classic_previous', actionId: 'PREVIOUS_TRACK', x: 72, y: 530, width: 56, height: 56),
+          ElementConfig(id: 'classic_play', actionId: 'PLAY_PAUSE', x: 148, y: 520, width: 72, height: 72),
+          ElementConfig(id: 'classic_next', actionId: 'NEXT_TRACK', x: 248, y: 530, width: 56, height: 56),
+        ];
+      case _LayoutTemplate.minimal:
+        return const [
+          ElementConfig(id: 'minimal_art', actionId: 'ALBUM_ART', x: 24, y: 260, width: 112, height: 112, borderRadius: 16),
+          ElementConfig(id: 'minimal_title', actionId: 'SONG_TITLE', x: 152, y: 274, width: 184, height: 36, textAlignment: 'left', textSize: 18),
+          ElementConfig(id: 'minimal_artist', actionId: 'ARTIST_NAME', x: 152, y: 310, width: 184, height: 28, textAlignment: 'left', opacity: 0.7),
+          ElementConfig(id: 'minimal_progress', actionId: 'PROGRESS_BAR', x: 24, y: 400, width: 312, height: 44),
+          ElementConfig(id: 'minimal_play', actionId: 'PLAY_PAUSE', x: 152, y: 470, width: 56, height: 56),
+          ElementConfig(id: 'minimal_previous', actionId: 'PREVIOUS_TRACK', x: 88, y: 476, width: 44, height: 44),
+          ElementConfig(id: 'minimal_next', actionId: 'NEXT_TRACK', x: 228, y: 476, width: 44, height: 44),
+        ];
+      case _LayoutTemplate.retroCyber:
+        return const [
+          ElementConfig(id: 'retro_blur', actionId: 'BLUR_BACKGROUND', x: 0, y: 0, width: 360, height: 640, opacity: 0.85),
+          ElementConfig(id: 'retro_frame', actionId: 'NEON_FRAME', x: 8, y: 8, width: 344, height: 624, borderRadius: 12, colorHex: '#00E5FF'),
+          ElementConfig(id: 'retro_art', actionId: 'ALBUM_ART', x: 56, y: 72, width: 248, height: 248, borderRadius: 8),
+          ElementConfig(id: 'retro_title', actionId: 'SONG_TITLE', x: 32, y: 350, width: 296, height: 48, textSize: 24, colorHex: '#00E5FF'),
+          ElementConfig(id: 'retro_progress', actionId: 'PROGRESS_BAR', x: 24, y: 430, width: 312, height: 52),
+          ElementConfig(id: 'retro_previous', actionId: 'PREVIOUS_TRACK', x: 52, y: 520, width: 72, height: 72, colorHex: '#FF2BD6'),
+          ElementConfig(id: 'retro_play', actionId: 'PLAY_PAUSE', x: 144, y: 510, width: 88, height: 88, colorHex: '#00E5FF'),
+          ElementConfig(id: 'retro_next', actionId: 'NEXT_TRACK', x: 236, y: 520, width: 72, height: 72, colorHex: '#FF2BD6'),
+        ];
+    }
+  }
+
   void _replaceElement(ElementConfig oldElement, ElementConfig newElement) {
     final index = _elements.indexOf(oldElement);
     if (index != -1) _elements[index] = newElement;
@@ -546,6 +707,56 @@ class _LayoutGridPainter extends CustomPainter {
       oldDelegate.showGuides != showGuides ||
         oldDelegate.verticalGuides != verticalGuides ||
         oldDelegate.horizontalGuides != horizontalGuides;
+  }
+}
+
+enum _LayoutTemplate { classic, minimalist, retroCyber }
+
+class _TemplatesSheet extends StatelessWidget {
+  const _TemplatesSheet();
+
+  @override
+  Widget build(BuildContext context) {
+    final templates = [
+      (
+        template: _LayoutTemplate.classic,
+        title: 'Klasik / Classic',
+        description: 'Büyük kapak, ortalanmış bilgiler ve alt kontroller.',
+        icon: FluentIcons.music_note_2_24_filled,
+      ),
+      (
+        template: _LayoutTemplate.minimalist,
+        title: 'Minimalist',
+        description: 'Küçük kapak, yan yana bilgiler ve sade kontroller.',
+        icon: FluentIcons.apps_list_24_filled,
+      ),
+      (
+        template: _LayoutTemplate.retroCyber,
+        title: 'Retro / Cyber',
+        description: 'Neon çerçeve, bulanık arka plan ve geniş kontroller.',
+        icon: FluentIcons.flash_24_filled,
+      ),
+    ];
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(20, 4, 20, 24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text('Şablonlar', style: Theme.of(context).textTheme.headlineSmall),
+            const SizedBox(height: 8),
+            for (final item in templates)
+              ListTile(
+                leading: Icon(item.icon),
+                title: Text(item.title),
+                subtitle: Text(item.description),
+                onTap: () => Navigator.pop(context, item.template),
+              ),
+          ],
+        ),
+      ),
+    );
   }
 }
 
