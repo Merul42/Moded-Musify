@@ -1,12 +1,15 @@
 import 'dart:io';
 
+import 'package:audio_service/audio_service.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:fluentui_system_icons/fluentui_system_icons.dart';
 import 'package:material_ui/material_ui.dart';
+import 'package:musify/main.dart';
 import 'package:musify/models/element_config.dart';
 import 'package:musify/models/layout_slot.dart';
 import 'package:musify/services/io_service.dart';
 import 'package:musify/services/layout_repository.dart';
+import 'package:musify/widgets/now_playing/dynamic_layout_player.dart';
 
 class LayoutEditorScreen extends StatefulWidget {
   const LayoutEditorScreen({
@@ -29,6 +32,9 @@ class _LayoutEditorScreenState extends State<LayoutEditorScreen> {
   String? _selectedElementId;
   List<double> _verticalGuides = <double>[];
   List<double> _horizontalGuides = <double>[];
+  bool _gridEnabled = true;
+  bool _snapEnabled = true;
+  bool _previewEnabled = false;
 
   @override
   void initState() {
@@ -49,6 +55,27 @@ class _LayoutEditorScreenState extends State<LayoutEditorScreen> {
             label: const Text('Kaydet'),
             onPressed: _saveLayout,
           ),
+          IconButton(
+            tooltip: 'Izgara',
+            isSelected: _gridEnabled,
+            selectedIcon: const Icon(FluentIcons.grid_24_filled),
+            icon: const Icon(FluentIcons.grid_24_regular),
+            onPressed: () => setState(() => _gridEnabled = !_gridEnabled),
+          ),
+          IconButton(
+            tooltip: 'Mıknatıs',
+            isSelected: _snapEnabled,
+            selectedIcon: const Icon(FluentIcons.target_24_filled),
+            icon: const Icon(FluentIcons.target_24_regular),
+            onPressed: () => setState(() => _snapEnabled = !_snapEnabled),
+          ),
+          IconButton(
+            tooltip: 'Önizleme',
+            isSelected: _previewEnabled,
+            selectedIcon: const Icon(FluentIcons.eye_24_filled),
+            icon: const Icon(FluentIcons.eye_24_regular),
+            onPressed: () => setState(() => _previewEnabled = !_previewEnabled),
+          ),
           const SizedBox(width: 12),
         ],
       ),
@@ -63,21 +90,45 @@ class _LayoutEditorScreenState extends State<LayoutEditorScreen> {
             color: colorScheme.surfaceContainerLowest,
             child: Stack(
               children: [
-                Positioned.fill(
-                  child: CustomPaint(
-                    painter: _LayoutGridPainter(
-                      color: colorScheme.outlineVariant,
-                      verticalGuides: _verticalGuides,
-                      horizontalGuides: _horizontalGuides,
+                if (!_previewEnabled)
+                  Positioned.fill(
+                    child: CustomPaint(
+                      painter: _LayoutGridPainter(
+                        color: colorScheme.outlineVariant,
+                        showGrid: _gridEnabled,
+                        showGuides: _snapEnabled,
+                        verticalGuides: _verticalGuides,
+                        horizontalGuides: _horizontalGuides,
+                      ),
                     ),
                   ),
-                ),
-                ..._elements.map(
-                  (element) => _buildElement(element, canvasSize),
-                ),
+                if (_previewEnabled)
+                  StreamBuilder<MediaItem?>(
+                    stream: audioHandler.mediaItem,
+                    builder: (context, snapshot) {
+                      final metadata = snapshot.data;
+                      if (metadata == null) return _buildPreviewFallback();
+                      return DynamicLayoutPlayer(
+                        slot: LayoutSlot(
+                          slotId: widget.slot.slotId,
+                          slotName: widget.slot.slotName,
+                          elements: _elements,
+                        ),
+                        metadata: metadata,
+                      );
+                    },
+                  )
+                else
+                  ..._elements.map(
+                    (element) => _buildElement(element, canvasSize),
+                  ),
                 if (_elements.isEmpty)
-                  const Center(
-                    child: Text('Bu slotta düzenlenecek eleman yok.'),
+                  Center(
+                    child: FilledButton.icon(
+                      icon: const Icon(FluentIcons.layout_cell_four_24_filled),
+                      label: const Text('Varsayılan Düzeni Yükle'),
+                      onPressed: _loadDefaultLayout,
+                    ),
                   ),
               ],
             ),
@@ -121,6 +172,15 @@ class _LayoutEditorScreenState extends State<LayoutEditorScreen> {
     );
   }
 
+  Widget _buildPreviewFallback() {
+    return Center(
+      child: Text(
+        'Önizleme için bir şarkı çalın',
+        style: Theme.of(context).textTheme.bodyLarge,
+      ),
+    );
+  }
+
   Widget _buildElementContent(ElementConfig element, Color color) {
     final imagePath = element.customImagePath;
     if (imagePath != null && imagePath.isNotEmpty) {
@@ -156,12 +216,14 @@ class _LayoutEditorScreenState extends State<LayoutEditorScreen> {
         .clamp(0.0, (canvasSize.width - element.width).clamp(0.0, double.infinity));
     final proposedY = (element.y + delta.dy)
         .clamp(0.0, (canvasSize.height - element.height).clamp(0.0, double.infinity));
-    final snapped = _snapElement(
-      element,
-      proposedX,
-      proposedY,
-      canvasSize,
-    );
+    final snapped = _snapEnabled
+        ? _snapElement(element, proposedX, proposedY, canvasSize)
+        : _SnapResult(
+            x: proposedX,
+            y: proposedY,
+            verticalGuides: <double>[],
+            horizontalGuides: <double>[],
+          );
 
     setState(() {
       _replaceElement(
@@ -241,6 +303,60 @@ class _LayoutEditorScreenState extends State<LayoutEditorScreen> {
     );
   }
 
+  Future<void> _loadDefaultLayout() async {
+    setState(() {
+      _elements = <ElementConfig>[
+        const ElementConfig(
+          id: 'ALBUM_ART',
+          x: 40,
+          y: 40,
+          width: 280,
+          height: 280,
+        ),
+        const ElementConfig(
+          id: 'SONG_TITLE',
+          x: 40,
+          y: 340,
+          width: 280,
+          height: 48,
+        ),
+        const ElementConfig(
+          id: 'PROGRESS_BAR',
+          x: 40,
+          y: 400,
+          width: 280,
+          height: 24,
+        ),
+        const ElementConfig(
+          id: 'PREVIOUS_TRACK',
+          x: 72,
+          y: 456,
+          width: 56,
+          height: 56,
+          actionId: 'PREVIOUS_TRACK',
+        ),
+        const ElementConfig(
+          id: 'PLAY_PAUSE',
+          x: 152,
+          y: 448,
+          width: 72,
+          height: 72,
+          actionId: 'PLAY_PAUSE',
+        ),
+        const ElementConfig(
+          id: 'NEXT_TRACK',
+          x: 248,
+          y: 456,
+          width: 56,
+          height: 56,
+          actionId: 'NEXT_TRACK',
+        ),
+      ];
+      _selectedElementId = null;
+    });
+    await _saveLayout();
+  }
+
   void _replaceElement(ElementConfig oldElement, ElementConfig newElement) {
     final index = _elements.indexOf(oldElement);
     if (index != -1) _elements[index] = newElement;
@@ -282,26 +398,33 @@ class _GuideMatch {
 class _LayoutGridPainter extends CustomPainter {
   const _LayoutGridPainter({
     required this.color,
+    required this.showGrid,
+    required this.showGuides,
     required this.verticalGuides,
     required this.horizontalGuides,
   });
 
   final Color color;
+  final bool showGrid;
+  final bool showGuides;
   final List<double> verticalGuides;
   final List<double> horizontalGuides;
 
   @override
   void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = color.withValues(alpha: 0.35)
-      ..strokeWidth = 1;
-    for (double x = 0; x < size.width; x += 16) {
-      canvas.drawLine(Offset(x, 0), Offset(x, size.height), paint);
-    }
-    for (double y = 0; y < size.height; y += 16) {
-      canvas.drawLine(Offset(0, y), Offset(size.width, y), paint);
+    if (showGrid) {
+      final paint = Paint()
+        ..color = color.withValues(alpha: 0.35)
+        ..strokeWidth = 1;
+      for (double x = 0; x < size.width; x += 16) {
+        canvas.drawLine(Offset(x, 0), Offset(x, size.height), paint);
+      }
+      for (double y = 0; y < size.height; y += 16) {
+        canvas.drawLine(Offset(0, y), Offset(size.width, y), paint);
+      }
     }
 
+    if (!showGuides) return;
     final guidePaint = Paint()
       ..color = color.withValues(alpha: 0.95)
       ..strokeWidth = 1.5;
@@ -316,6 +439,8 @@ class _LayoutGridPainter extends CustomPainter {
   @override
   bool shouldRepaint(_LayoutGridPainter oldDelegate) {
     return oldDelegate.color != color ||
+      oldDelegate.showGrid != showGrid ||
+      oldDelegate.showGuides != showGuides ||
         oldDelegate.verticalGuides != verticalGuides ||
         oldDelegate.horizontalGuides != horizontalGuides;
   }
