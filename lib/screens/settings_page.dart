@@ -27,7 +27,6 @@ import 'package:musify/constants/app_constants.dart';
 import 'package:musify/extensions/l10n.dart';
 import 'package:musify/main.dart';
 import 'package:musify/models/layout_slot.dart';
-import 'package:musify/screens/layout_editor_screen.dart';
 import 'package:musify/screens/search_page.dart';
 import 'package:musify/services/common_services.dart';
 import 'package:musify/services/data_manager.dart';
@@ -153,7 +152,7 @@ class _SettingsPageState extends State<SettingsPage> {
               '/settings/layout-editor',
               extra: selectedSlot,
             );
-            _loadLayouts();
+            await _loadLayouts();
           },
         ),
       ],
@@ -675,7 +674,7 @@ class _SettingsPageState extends State<SettingsPage> {
   }
 
   void _showThemeModePicker(BuildContext context) {
-    final availableModes = [ThemeMode.system, ThemeMode.light, ThemeMode.dark];
+    const availableModes = [ThemeMode.system, ThemeMode.light, ThemeMode.dark];
     const modeIcons = [
       FluentIcons.phone_24_regular,
       FluentIcons.weather_sunny_24_regular,

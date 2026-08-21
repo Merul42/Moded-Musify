@@ -2,7 +2,7 @@ import 'package:hive/hive.dart';
 import 'package:musify/models/layout_slot.dart';
 
 class LayoutRepository {
-  LayoutRepository({Box<dynamic>? box}) : _box = box;
+  LayoutRepository({this._box});
 
   static const String _boxName = 'user';
   static const String _slotsKey = 'layoutSlots';

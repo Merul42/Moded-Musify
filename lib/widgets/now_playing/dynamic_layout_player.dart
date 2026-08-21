@@ -9,8 +9,8 @@ import 'package:musify/models/layout_slot.dart';
 import 'package:musify/models/position_data.dart';
 import 'package:musify/services/common_services.dart';
 import 'package:musify/services/settings_manager.dart';
-import 'package:musify/widgets/position_slider.dart';
 import 'package:musify/widgets/playback_icon_button.dart';
+import 'package:musify/widgets/position_slider.dart';
 import 'package:musify/widgets/queue_list_view.dart';
 
 class DynamicLayoutPlayer extends StatelessWidget {
