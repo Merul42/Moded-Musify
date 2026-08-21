@@ -10,14 +10,11 @@ class TenorGifSearchResult {
     required this.height,
   });
 
-  final String url;
-  final String previewUrl;
-  final int width;
-  final int height;
-
   factory TenorGifSearchResult.fromJson(Map<String, dynamic> json) {
-    final media = (json['media_formats'] as Map<String, dynamic>?) ?? const <String, dynamic>{};
-    final gif = (media['gif'] as Map<String, dynamic>?) ?? const <String, dynamic>{};
+    final media = (json['media_formats'] as Map<String, dynamic>?) ??
+        const <String, dynamic>{};
+    final gif = (media['gif'] as Map<String, dynamic>?) ??
+        const <String, dynamic>{};
     final preview = (media['tinygif'] as Map<String, dynamic>?) ??
         (media['nanogif'] as Map<String, dynamic>?) ??
         const <String, dynamic>{};
@@ -29,12 +26,16 @@ class TenorGifSearchResult {
       height: ((gif['dims'] as List?)?[1] as num?)?.toInt() ?? 0,
     );
   }
+
+  final String url;
+  final String previewUrl;
+  final int width;
+  final int height;
 }
 
 class TenorService {
   static const String _apiKey = String.fromEnvironment(
     'TENOR_API_KEY',
-    defaultValue: '',
   );
 
   static bool get hasApiKey => _apiKey.trim().isNotEmpty;
