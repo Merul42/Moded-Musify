@@ -118,7 +118,7 @@ class _SettingsPageState extends State<SettingsPage> {
 
     return Column(
       children: [
-        SectionHeader(
+        const SectionHeader(
           title: 'Arayüz Özelleştirme',
           icon: FluentIcons.layout_column_three_24_filled,
         ),

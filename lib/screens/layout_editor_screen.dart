@@ -158,8 +158,8 @@ class _LayoutEditorScreenState extends State<LayoutEditorScreen> {
         .clamp(0.0, (canvasSize.height - element.height).clamp(0.0, double.infinity));
     final snapped = _snapElement(
       element,
-      proposedX.toDouble(),
-      proposedY.toDouble(),
+      proposedX,
+      proposedY,
       canvasSize,
     );
 
