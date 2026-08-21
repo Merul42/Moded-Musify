@@ -26,10 +26,13 @@ import 'package:material_ui/material_ui.dart';
 import 'package:musify/constants/app_constants.dart';
 import 'package:musify/extensions/l10n.dart';
 import 'package:musify/main.dart';
+import 'package:musify/models/layout_slot.dart';
+import 'package:musify/screens/layout_editor_screen.dart';
 import 'package:musify/screens/search_page.dart';
 import 'package:musify/services/common_services.dart';
 import 'package:musify/services/data_manager.dart';
 import 'package:musify/services/listening_stats_service.dart';
+import 'package:musify/services/layout_repository.dart';
 import 'package:musify/services/playlist_download_service.dart';
 import 'package:musify/services/playlists_manager.dart';
 import 'package:musify/services/router_service.dart';
@@ -47,8 +50,33 @@ import 'package:musify/widgets/custom_bar.dart';
 import 'package:musify/widgets/mini_player_bottom_space.dart';
 import 'package:musify/widgets/section_header.dart';
 
-class SettingsPage extends StatelessWidget {
+class SettingsPage extends StatefulWidget {
   const SettingsPage({super.key});
+
+  @override
+  State<SettingsPage> createState() => _SettingsPageState();
+}
+
+class _SettingsPageState extends State<SettingsPage> {
+  final _layoutRepository = LayoutRepository();
+  int _activeSlotId = 1;
+  List<LayoutSlot> _slots = <LayoutSlot>[];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadLayouts();
+  }
+
+  Future<void> _loadLayouts() async {
+    final slots = await _layoutRepository.getSlots();
+    final activeSlotId = await _layoutRepository.getActiveSlotId();
+    if (!mounted) return;
+    setState(() {
+      _slots = slots;
+      _activeSlotId = activeSlotId;
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -68,6 +96,7 @@ class SettingsPage extends StatelessWidget {
               activatedColor,
               inactivatedColor,
             ),
+            _buildLayoutSection(context),
             if (!offlineMode.value) _buildOnlineFeaturesSection(context),
             _buildOthersSection(context),
             const SizedBox(height: 20),
@@ -75,6 +104,59 @@ class SettingsPage extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildLayoutSection(BuildContext context) {
+    LayoutSlot? selectedSlot;
+    for (final slot in _slots) {
+      if (slot.slotId == _activeSlotId) selectedSlot = slot;
+    }
+    selectedSlot ??= LayoutSlot(
+      slotId: _activeSlotId,
+      slotName: 'Slot $_activeSlotId',
+    );
+
+    return Column(
+      children: [
+        SectionHeader(
+          title: 'Arayüz Özelleştirme',
+          icon: FluentIcons.layout_column_three_24_filled,
+        ),
+        CustomBar(
+          'Aktif slot',
+          FluentIcons.apps_list_24_regular,
+          borderRadius: commonCustomBarRadiusFirst,
+          trailing: DropdownButton<int>(
+            value: _activeSlotId,
+            underline: const SizedBox.shrink(),
+            items: List.generate(
+              5,
+              (index) => DropdownMenuItem(
+                value: index + 1,
+                child: Text('Slot ${index + 1}'),
+              ),
+            ),
+            onChanged: (slotId) async {
+              if (slotId == null) return;
+              await _layoutRepository.setActiveSlotId(slotId);
+              if (mounted) setState(() => _activeSlotId = slotId);
+            },
+          ),
+        ),
+        CustomBar(
+          'Arayüzü Düzenle',
+          FluentIcons.edit_24_regular,
+          borderRadius: commonCustomBarRadiusLast,
+          onTap: () async {
+            await context.push(
+              '/settings/layout-editor',
+              extra: selectedSlot,
+            );
+            _loadLayouts();
+          },
+        ),
+      ],
     );
   }
 

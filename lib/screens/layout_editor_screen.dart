@@ -234,6 +234,7 @@ class _LayoutEditorScreenState extends State<LayoutEditorScreen> {
         elements: _elements,
       ),
     );
+    await repository.setActiveSlotId(widget.slot.slotId);
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('Düzen kaydedildi.')),

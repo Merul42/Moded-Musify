@@ -23,10 +23,13 @@ import 'package:audio_service/audio_service.dart';
 import 'package:fluentui_system_icons/fluentui_system_icons.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:musify/main.dart';
+import 'package:musify/models/layout_slot.dart';
+import 'package:musify/services/layout_repository.dart';
 import 'package:musify/widgets/flip_card.dart';
 import 'package:musify/widgets/now_playing/bottom_actions_row.dart';
 import 'package:musify/widgets/now_playing/now_playing_artwork.dart';
 import 'package:musify/widgets/now_playing/now_playing_controls.dart';
+import 'package:musify/widgets/now_playing/dynamic_layout_player.dart';
 import 'package:musify/widgets/queue_list_view.dart';
 
 class NowPlayingPage extends StatefulWidget {
@@ -67,22 +70,14 @@ class _NowPlayingPageState extends State<NowPlayingPage> {
               children: [
                 _buildAppBar(context, colorScheme),
                 Expanded(
-                  child: isLargeScreen
-                      ? _DesktopLayout(
-                          metadata: metadata,
-                          size: size,
-                          adjustedIconSize: baseIconSize,
-                          adjustedMiniIconSize: miniIconSize,
-                          lyricsController: _lyricsController,
-                        )
-                      : _MobileLayout(
-                          metadata: metadata,
-                          size: size,
-                          adjustedIconSize: baseIconSize,
-                          adjustedMiniIconSize: miniIconSize,
-                          isLargeScreen: isLargeScreen,
-                          lyricsController: _lyricsController,
-                        ),
+                  child: _buildPlayerLayout(
+                    context,
+                    metadata,
+                    size,
+                    isLargeScreen,
+                    baseIconSize,
+                    miniIconSize,
+                  ),
                 ),
               ],
             );
@@ -90,6 +85,71 @@ class _NowPlayingPageState extends State<NowPlayingPage> {
         ),
       ),
     );
+  }
+
+  Widget _buildPlayerLayout(
+    BuildContext context,
+    MediaItem metadata,
+    Size size,
+    bool isLargeScreen,
+    double baseIconSize,
+    double miniIconSize,
+  ) {
+    return FutureBuilder<int>(
+      future: LayoutRepository().getActiveSlotId(),
+      builder: (context, activeSnapshot) {
+        if (activeSnapshot.hasData) {
+          return FutureBuilder<LayoutSlot?>(
+            future: LayoutRepository().getSlot(activeSnapshot.data!),
+            builder: (context, slotSnapshot) {
+              final slot = slotSnapshot.data;
+              if (slot != null && slot.elements.isNotEmpty) {
+                return DynamicLayoutPlayer(slot: slot, metadata: metadata);
+              }
+              return _buildDefaultPlayerLayout(
+                metadata,
+                size,
+                isLargeScreen,
+                baseIconSize,
+                miniIconSize,
+              );
+            },
+          );
+        }
+        return _buildDefaultPlayerLayout(
+          metadata,
+          size,
+          isLargeScreen,
+          baseIconSize,
+          miniIconSize,
+        );
+      },
+    );
+  }
+
+  Widget _buildDefaultPlayerLayout(
+    MediaItem metadata,
+    Size size,
+    bool isLargeScreen,
+    double baseIconSize,
+    double miniIconSize,
+  ) {
+    return isLargeScreen
+        ? _DesktopLayout(
+            metadata: metadata,
+            size: size,
+            adjustedIconSize: baseIconSize,
+            adjustedMiniIconSize: miniIconSize,
+            lyricsController: _lyricsController,
+          )
+        : _MobileLayout(
+            metadata: metadata,
+            size: size,
+            adjustedIconSize: baseIconSize,
+            adjustedMiniIconSize: miniIconSize,
+            isLargeScreen: isLargeScreen,
+            lyricsController: _lyricsController,
+          );
   }
 
   Widget _buildAppBar(BuildContext context, ColorScheme colorScheme) {

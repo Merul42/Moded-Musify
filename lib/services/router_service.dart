@@ -31,6 +31,8 @@ import 'package:musify/screens/equalizer_page.dart';
 import 'package:musify/screens/home_page.dart';
 import 'package:musify/screens/import_spotify_playlist_page.dart';
 import 'package:musify/screens/library_page.dart';
+import 'package:musify/screens/layout_editor_screen.dart';
+import 'package:musify/models/layout_slot.dart';
 import 'package:musify/screens/playlist_folder_page.dart';
 import 'package:musify/screens/playlist_page.dart';
 import 'package:musify/screens/radio_stations_page.dart';
@@ -286,6 +288,17 @@ class NavigationManager {
                 path: 'equalizer',
                 pageBuilder: (context, state) =>
                     _pushPage(child: const EqualizerPage(), state: state),
+              ),
+              GoRoute(
+                path: 'layout-editor',
+                pageBuilder: (context, state) {
+                  final slot = state.extra as LayoutSlot? ??
+                      LayoutSlot(slotId: 1, slotName: 'Slot 1');
+                  return _pushPage(
+                    child: LayoutEditorScreen(slot: slot),
+                    state: state,
+                  );
+                },
               ),
               GoRoute(
                 path: 'import-spotify-playlist',
