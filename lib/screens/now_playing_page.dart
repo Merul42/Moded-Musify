@@ -27,9 +27,9 @@ import 'package:musify/models/layout_slot.dart';
 import 'package:musify/services/layout_repository.dart';
 import 'package:musify/widgets/flip_card.dart';
 import 'package:musify/widgets/now_playing/bottom_actions_row.dart';
+import 'package:musify/widgets/now_playing/dynamic_layout_player.dart';
 import 'package:musify/widgets/now_playing/now_playing_artwork.dart';
 import 'package:musify/widgets/now_playing/now_playing_controls.dart';
-import 'package:musify/widgets/now_playing/dynamic_layout_player.dart';
 import 'package:musify/widgets/queue_list_view.dart';
 
 class NowPlayingPage extends StatefulWidget {

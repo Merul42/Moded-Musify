@@ -458,11 +458,10 @@ class _ElementEditorPanelState extends State<_ElementEditorPanel> {
   Future<void> _pickImage() async {
     setState(() => _isPickingImage = true);
     try {
-      final result = await FilePicker.platform.pickFiles(
+      final result = await FilePicker.pickFile(
         type: FileType.image,
-        allowMultiple: false,
       );
-      final pickedPath = result?.files.single.path;
+      final pickedPath = result?.path;
       if (pickedPath == null) return;
 
       final imageDirectory = Directory('$applicationDirPath/layout_images');
