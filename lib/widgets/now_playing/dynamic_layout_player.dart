@@ -9,7 +9,6 @@ import 'package:musify/main.dart';
 import 'package:musify/models/element_config.dart';
 import 'package:musify/models/layout_slot.dart';
 import 'package:musify/models/position_data.dart';
-import 'package:musify/screens/equalizer_page.dart';
 import 'package:musify/services/common_services.dart';
 import 'package:musify/services/settings_manager.dart';
 import 'package:musify/widgets/playback_icon_button.dart';
@@ -215,9 +214,7 @@ class _DynamicElement extends StatelessWidget {
         return _controlButton(
           context,
           FluentIcons.options_24_filled,
-          () => Navigator.of(context).push(
-            MaterialPageRoute<void>(builder: (_) => const EqualizerPage()),
-          ),
+          () => audioHandler.setEqualizerEnabled(!equalizerEnabled.value),
         );
       case 'MUTE_UNMUTE':
         return _controlButton(
