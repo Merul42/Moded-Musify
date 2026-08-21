@@ -16,11 +16,7 @@ import 'package:musify/services/tenor_service.dart';
 import 'package:musify/widgets/now_playing/dynamic_layout_player.dart';
 
 class LayoutEditorScreen extends StatefulWidget {
-  const LayoutEditorScreen({
-    required this.slot,
-    this.repository,
-    super.key,
-  });
+  const LayoutEditorScreen({required this.slot, this.repository, super.key});
 
   final LayoutSlot slot;
   final LayoutRepository? repository;
@@ -33,6 +29,8 @@ class _LayoutEditorScreenState extends State<LayoutEditorScreen> {
   static const double _snapDistance = 8;
 
   late List<ElementConfig> _elements;
+  late LayoutPage _page;
+  late LayoutSlot _currentSlot;
   String? _selectedElementId;
   List<double> _verticalGuides = <double>[];
   List<double> _horizontalGuides = <double>[];
@@ -43,6 +41,11 @@ class _LayoutEditorScreenState extends State<LayoutEditorScreen> {
   @override
   void initState() {
     super.initState();
+    _page = LayoutPage.values.firstWhere(
+      (page) => page.slotId == widget.slot.slotId,
+      orElse: () => LayoutPage.nowPlaying,
+    );
+    _currentSlot = widget.slot;
     _elements = List<ElementConfig>.from(widget.slot.elements);
   }
 
@@ -52,7 +55,21 @@ class _LayoutEditorScreenState extends State<LayoutEditorScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(widget.slot.slotName),
+        title: DropdownButton<LayoutPage>(
+          value: _page,
+          underline: const SizedBox.shrink(),
+          items: LayoutPage.values
+              .map(
+                (page) => DropdownMenuItem<LayoutPage>(
+                  value: page,
+                  child: Text(page.label),
+                ),
+              )
+              .toList(),
+          onChanged: (page) {
+            if (page != null) _selectPage(page);
+          },
+        ),
         actions: [
           FilledButton.icon(
             icon: const Icon(FluentIcons.save_24_filled),
@@ -105,10 +122,7 @@ class _LayoutEditorScreenState extends State<LayoutEditorScreen> {
       ),
       body: LayoutBuilder(
         builder: (context, constraints) {
-          final canvasSize = Size(
-            constraints.maxWidth,
-            constraints.maxHeight,
-          );
+          final canvasSize = Size(constraints.maxWidth, constraints.maxHeight);
 
           return ColoredBox(
             color: colorScheme.surfaceContainerLowest,
@@ -136,8 +150,8 @@ class _LayoutEditorScreenState extends State<LayoutEditorScreen> {
                         children: [
                           DynamicLayoutPlayer(
                             slot: LayoutSlot(
-                              slotId: widget.slot.slotId,
-                              slotName: widget.slot.slotName,
+                              slotId: _currentSlot.slotId,
+                              slotName: _currentSlot.slotName,
                               elements: _elements,
                             ),
                             metadata: metadata,
@@ -150,7 +164,9 @@ class _LayoutEditorScreenState extends State<LayoutEditorScreen> {
                               height: element.height,
                               child: GestureDetector(
                                 behavior: HitTestBehavior.opaque,
-                                onTapDown: (_) => setState(() => _selectedElementId = element.id),
+                                onTapDown: (_) => setState(
+                                  () => _selectedElementId = element.id,
+                                ),
                                 onTap: () => _editElement(element),
                                 child: IgnorePointer(
                                   ignoring: false,
@@ -158,16 +174,23 @@ class _LayoutEditorScreenState extends State<LayoutEditorScreen> {
                                     decoration: BoxDecoration(
                                       border: Border.all(
                                         color: element.id == _selectedElementId
-                                            ? Theme.of(context).colorScheme.primary
+                                            ? Theme.of(context)
+                                                  .colorScheme
+                                                  .primary
                                             : Colors.transparent,
-                                        width: element.id == _selectedElementId ? 2 : 0,
+                                        width: element.id == _selectedElementId
+                                            ? 2
+                                            : 0,
                                       ),
-                                      borderRadius: BorderRadius.circular(element.borderRadius),
+                                      borderRadius: BorderRadius.circular(
+                                        element.borderRadius,
+                                      ),
                                     ),
                                   ),
                                 ),
                               ),
-                            )),
+                            ),
+                          ),
                         ],
                       );
                     },
@@ -194,7 +217,8 @@ class _LayoutEditorScreenState extends State<LayoutEditorScreen> {
 
   Widget _buildElement(ElementConfig element, Size canvasSize) {
     final isSelected = element.id == _selectedElementId;
-    final color = _parseColor(element.colorHex) ??
+    final color =
+        _parseColor(element.colorHex) ??
         Theme.of(context).colorScheme.primaryContainer;
 
     return Positioned(
@@ -210,7 +234,8 @@ class _LayoutEditorScreenState extends State<LayoutEditorScreen> {
             onTapDown: (_) => setState(() => _selectedElementId = element.id),
             onTap: () => _editElement(element),
             onPanStart: (_) => setState(() => _selectedElementId = element.id),
-            onPanUpdate: (details) => _moveElement(element, details.delta, canvasSize),
+            onPanUpdate: (details) =>
+                _moveElement(element, details.delta, canvasSize),
             onPanEnd: (_) => setState(() {
               _verticalGuides = <double>[];
               _horizontalGuides = <double>[];
@@ -235,8 +260,7 @@ class _LayoutEditorScreenState extends State<LayoutEditorScreen> {
               ),
             ),
           ),
-          if (isSelected)
-            ..._buildResizeHandles(element, canvasSize),
+          if (isSelected) ..._buildResizeHandles(element, canvasSize),
         ],
       ),
     );
@@ -250,23 +274,21 @@ class _LayoutEditorScreenState extends State<LayoutEditorScreen> {
       for (final handle in _ResizeHandlePosition.values)
         Positioned(
           key: ValueKey('layout-resize-handle-${element.id}-${handle.name}'),
-          left: handle == _ResizeHandlePosition.nw ||
+          left:
+              handle == _ResizeHandlePosition.nw ||
                   handle == _ResizeHandlePosition.sw
               ? -handleOffset
               : element.width - handleSize + handleOffset,
-          top: handle == _ResizeHandlePosition.nw ||
-                 handle == _ResizeHandlePosition.ne
+          top:
+              handle == _ResizeHandlePosition.nw ||
+                  handle == _ResizeHandlePosition.ne
               ? -handleOffset
               : element.height - handleSize + handleOffset,
           child: GestureDetector(
             behavior: HitTestBehavior.opaque,
             onPanStart: (_) => setState(() => _selectedElementId = element.id),
-            onPanUpdate: (details) => _resizeElement(
-              element,
-              handle,
-              details.delta,
-              canvasSize,
-            ),
+            onPanUpdate: (details) =>
+                _resizeElement(element, handle, details.delta, canvasSize),
             child: Container(
               width: handleSize,
               height: handleSize,
@@ -365,21 +387,26 @@ class _LayoutEditorScreenState extends State<LayoutEditorScreen> {
   }
 
   Widget _buildMediaWidget(
-    String mediaUrl, 
+    String mediaUrl,
     ElementConfig element, {
     Widget? fallback,
   }) {
-    final isUrl = mediaUrl.startsWith('http://') || mediaUrl.startsWith('https://');
+    final isUrl =
+        mediaUrl.startsWith('http://') || mediaUrl.startsWith('https://');
     if (!isUrl) {
       final file = File(mediaUrl);
       if (!file.existsSync()) {
         return fallback ?? const SizedBox.shrink();
       }
       final image = Image.file(file, fit: BoxFit.cover);
-      return fallback == null ? image : Stack(fit: StackFit.expand, children: [image]);
+      return fallback == null
+          ? image
+          : Stack(fit: StackFit.expand, children: [image]);
     }
 
-    if (mediaUrl.toLowerCase().endsWith('.gif') || mediaUrl.contains('tenor') || mediaUrl.contains('giphy')) {
+    if (mediaUrl.toLowerCase().endsWith('.gif') ||
+        mediaUrl.contains('tenor') ||
+        mediaUrl.contains('giphy')) {
       return Image.network(
         mediaUrl,
         fit: BoxFit.cover,
@@ -397,10 +424,14 @@ class _LayoutEditorScreenState extends State<LayoutEditorScreen> {
   }
 
   void _moveElement(ElementConfig element, Offset delta, Size canvasSize) {
-    final proposedX = (element.x + delta.dx)
-        .clamp(0.0, (canvasSize.width - element.width).clamp(0.0, double.infinity));
-    final proposedY = (element.y + delta.dy)
-        .clamp(0.0, (canvasSize.height - element.height).clamp(0.0, double.infinity));
+    final proposedX = (element.x + delta.dx).clamp(
+      0.0,
+      (canvasSize.width - element.width).clamp(0.0, double.infinity),
+    );
+    final proposedY = (element.y + delta.dy).clamp(
+      0.0,
+      (canvasSize.height - element.height).clamp(0.0, double.infinity),
+    );
     final snapped = _snapEnabled
         ? _snapElement(element, proposedX, proposedY, canvasSize)
         : _SnapResult(
@@ -411,10 +442,7 @@ class _LayoutEditorScreenState extends State<LayoutEditorScreen> {
           );
 
     setState(() {
-      _replaceElement(
-        element,
-        element.copyWith(x: snapped.x, y: snapped.y),
-      );
+      _replaceElement(element, element.copyWith(x: snapped.x, y: snapped.y));
       _verticalGuides = snapped.verticalGuides;
       _horizontalGuides = snapped.horizontalGuides;
       _selectedElementId = element.id;
@@ -479,8 +507,16 @@ class _LayoutEditorScreenState extends State<LayoutEditorScreen> {
     final horizontalTargets = <double>[canvasSize.height / 2];
     for (final other in _elements) {
       if (other.id == element.id) continue;
-      verticalTargets.addAll(<double>[other.x, other.x + other.width / 2, other.x + other.width]);
-      horizontalTargets.addAll(<double>[other.y, other.y + other.height / 2, other.y + other.height]);
+      verticalTargets.addAll(<double>[
+        other.x,
+        other.x + other.width / 2,
+        other.x + other.width,
+      ]);
+      horizontalTargets.addAll(<double>[
+        other.y,
+        other.y + other.height / 2,
+        other.y + other.height,
+      ]);
     }
 
     final xCandidates = <double>[x, x + element.width / 2, x + element.width];
@@ -488,8 +524,14 @@ class _LayoutEditorScreenState extends State<LayoutEditorScreen> {
     final xSnap = _findSnap(xCandidates, verticalTargets);
     final ySnap = _findSnap(yCandidates, horizontalTargets);
     return _SnapResult(
-      x: (x + (xSnap?.offset ?? 0)).clamp(0.0, canvasSize.width - element.width),
-      y: (y + (ySnap?.offset ?? 0)).clamp(0.0, canvasSize.height - element.height),
+      x: (x + (xSnap?.offset ?? 0)).clamp(
+        0.0,
+        canvasSize.width - element.width,
+      ),
+      y: (y + (ySnap?.offset ?? 0)).clamp(
+        0.0,
+        canvasSize.height - element.height,
+      ),
       verticalGuides: xSnap == null ? <double>[] : <double>[xSnap.target],
       horizontalGuides: ySnap == null ? <double>[] : <double>[ySnap.target],
     );
@@ -524,16 +566,30 @@ class _LayoutEditorScreenState extends State<LayoutEditorScreen> {
     final repository = widget.repository ?? LayoutRepository();
     await repository.saveSlot(
       LayoutSlot(
-        slotId: widget.slot.slotId,
-        slotName: widget.slot.slotName,
+        slotId: _currentSlot.slotId,
+        slotName: _currentSlot.slotName,
         elements: _elements,
       ),
     );
-    await repository.setActiveSlotId(widget.slot.slotId);
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Düzen kaydedildi.')),
-    );
+    ScaffoldMessenger.of(context)
+        .showSnackBar(const SnackBar(content: Text('Düzen kaydedildi.')));
+  }
+
+  Future<void> _selectPage(LayoutPage page) async {
+    final repository = widget.repository ?? LayoutRepository();
+    final slot =
+        await repository.getPageLayout(page) ??
+        LayoutSlot(slotId: page.slotId, slotName: page.label);
+    if (!mounted) return;
+    setState(() {
+      _page = page;
+      _currentSlot = slot;
+      _elements = List<ElementConfig>.from(slot.elements);
+      _selectedElementId = null;
+      _verticalGuides = <double>[];
+      _horizontalGuides = <double>[];
+    });
   }
 
   Future<void> _loadDefaultLayout() async {
@@ -687,8 +743,8 @@ class _LayoutEditorScreenState extends State<LayoutEditorScreen> {
   Future<void> _exportLayout() async {
     final json = const JsonEncoder.withIndent('  ').convert(
       LayoutSlot(
-        slotId: widget.slot.slotId,
-        slotName: widget.slot.slotName,
+        slotId: _currentSlot.slotId,
+        slotName: _currentSlot.slotName,
         elements: _elements,
       ).toJson(),
     );
@@ -731,11 +787,14 @@ class _LayoutEditorScreenState extends State<LayoutEditorScreen> {
     try {
       final decoded = jsonDecode(json);
       final rawElements = decoded is Map ? decoded['elements'] : decoded;
-      if (rawElements is! List) throw const FormatException('elements bulunamadı');
+      if (rawElements is! List)
+        throw const FormatException('elements bulunamadı');
       final elements = rawElements
-          .map((element) => ElementConfig.fromJson(
-                Map<String, dynamic>.from(element as Map),
-              ))
+          .map(
+            (element) => ElementConfig.fromJson(
+              Map<String, dynamic>.from(element as Map),
+            ),
+          )
           .toList();
       setState(() {
         _elements = elements;
@@ -743,9 +802,9 @@ class _LayoutEditorScreenState extends State<LayoutEditorScreen> {
       });
       await _saveLayout();
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Tasarım içe aktarıldı.')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Tasarım içe aktarıldı.')));
     } catch (_) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Geçersiz layout JSON verisi.')),
@@ -757,35 +816,213 @@ class _LayoutEditorScreenState extends State<LayoutEditorScreen> {
     switch (template) {
       case _LayoutTemplate.classic:
         return const [
-          ElementConfig(id: 'classic_blur', actionId: 'BLUR_BACKGROUND', x: 0, y: 0, width: 360, height: 640),
-          ElementConfig(id: 'classic_art', actionId: 'ALBUM_ART', x: 40, y: 44, width: 280, height: 280, borderRadius: 24),
-          ElementConfig(id: 'classic_title', actionId: 'SONG_TITLE', x: 40, y: 350, width: 280, height: 44, textSize: 20),
-          ElementConfig(id: 'classic_artist', actionId: 'ARTIST_NAME', x: 40, y: 394, width: 280, height: 32, opacity: 0.7),
-          ElementConfig(id: 'classic_progress', actionId: 'PROGRESS_BAR', x: 32, y: 450, width: 296, height: 48),
-          ElementConfig(id: 'classic_previous', actionId: 'PREVIOUS_TRACK', x: 72, y: 530, width: 56, height: 56),
-          ElementConfig(id: 'classic_play', actionId: 'PLAY_PAUSE', x: 148, y: 520, width: 72, height: 72),
-          ElementConfig(id: 'classic_next', actionId: 'NEXT_TRACK', x: 248, y: 530, width: 56, height: 56),
+          ElementConfig(
+            id: 'classic_blur',
+            actionId: 'BLUR_BACKGROUND',
+            x: 0,
+            y: 0,
+            width: 360,
+            height: 640,
+          ),
+          ElementConfig(
+            id: 'classic_art',
+            actionId: 'ALBUM_ART',
+            x: 40,
+            y: 44,
+            width: 280,
+            height: 280,
+            borderRadius: 24,
+          ),
+          ElementConfig(
+            id: 'classic_title',
+            actionId: 'SONG_TITLE',
+            x: 40,
+            y: 350,
+            width: 280,
+            height: 44,
+            textSize: 20,
+          ),
+          ElementConfig(
+            id: 'classic_artist',
+            actionId: 'ARTIST_NAME',
+            x: 40,
+            y: 394,
+            width: 280,
+            height: 32,
+            opacity: 0.7,
+          ),
+          ElementConfig(
+            id: 'classic_progress',
+            actionId: 'PROGRESS_BAR',
+            x: 32,
+            y: 450,
+            width: 296,
+            height: 48,
+          ),
+          ElementConfig(
+            id: 'classic_previous',
+            actionId: 'PREVIOUS_TRACK',
+            x: 72,
+            y: 530,
+            width: 56,
+            height: 56,
+          ),
+          ElementConfig(
+            id: 'classic_play',
+            actionId: 'PLAY_PAUSE',
+            x: 148,
+            y: 520,
+            width: 72,
+            height: 72,
+          ),
+          ElementConfig(
+            id: 'classic_next',
+            actionId: 'NEXT_TRACK',
+            x: 248,
+            y: 530,
+            width: 56,
+            height: 56,
+          ),
         ];
       case _LayoutTemplate.minimalist:
         return const [
-          ElementConfig(id: 'minimal_art', actionId: 'ALBUM_ART', x: 24, y: 260, width: 112, height: 112, borderRadius: 16),
-          ElementConfig(id: 'minimal_title', actionId: 'SONG_TITLE', x: 152, y: 274, width: 184, height: 36, textAlignment: 'left', textSize: 18),
-          ElementConfig(id: 'minimal_artist', actionId: 'ARTIST_NAME', x: 152, y: 310, width: 184, height: 28, textAlignment: 'left', opacity: 0.7),
-          ElementConfig(id: 'minimal_progress', actionId: 'PROGRESS_BAR', x: 24, y: 400, width: 312, height: 44),
-          ElementConfig(id: 'minimal_play', actionId: 'PLAY_PAUSE', x: 152, y: 470, width: 56, height: 56),
-          ElementConfig(id: 'minimal_previous', actionId: 'PREVIOUS_TRACK', x: 88, y: 476, width: 44, height: 44),
-          ElementConfig(id: 'minimal_next', actionId: 'NEXT_TRACK', x: 228, y: 476, width: 44, height: 44),
+          ElementConfig(
+            id: 'minimal_art',
+            actionId: 'ALBUM_ART',
+            x: 24,
+            y: 260,
+            width: 112,
+            height: 112,
+            borderRadius: 16,
+          ),
+          ElementConfig(
+            id: 'minimal_title',
+            actionId: 'SONG_TITLE',
+            x: 152,
+            y: 274,
+            width: 184,
+            height: 36,
+            textAlignment: 'left',
+            textSize: 18,
+          ),
+          ElementConfig(
+            id: 'minimal_artist',
+            actionId: 'ARTIST_NAME',
+            x: 152,
+            y: 310,
+            width: 184,
+            height: 28,
+            textAlignment: 'left',
+            opacity: 0.7,
+          ),
+          ElementConfig(
+            id: 'minimal_progress',
+            actionId: 'PROGRESS_BAR',
+            x: 24,
+            y: 400,
+            width: 312,
+            height: 44,
+          ),
+          ElementConfig(
+            id: 'minimal_play',
+            actionId: 'PLAY_PAUSE',
+            x: 152,
+            y: 470,
+            width: 56,
+            height: 56,
+          ),
+          ElementConfig(
+            id: 'minimal_previous',
+            actionId: 'PREVIOUS_TRACK',
+            x: 88,
+            y: 476,
+            width: 44,
+            height: 44,
+          ),
+          ElementConfig(
+            id: 'minimal_next',
+            actionId: 'NEXT_TRACK',
+            x: 228,
+            y: 476,
+            width: 44,
+            height: 44,
+          ),
         ];
       case _LayoutTemplate.retroCyber:
         return const [
-          ElementConfig(id: 'retro_blur', actionId: 'BLUR_BACKGROUND', x: 0, y: 0, width: 360, height: 640, opacity: 0.85),
-          ElementConfig(id: 'retro_frame', actionId: 'NEON_FRAME', x: 8, y: 8, width: 344, height: 624, borderRadius: 12, colorHex: '#00E5FF'),
-          ElementConfig(id: 'retro_art', actionId: 'ALBUM_ART', x: 56, y: 72, width: 248, height: 248, borderRadius: 8),
-          ElementConfig(id: 'retro_title', actionId: 'SONG_TITLE', x: 32, y: 350, width: 296, height: 48, textSize: 24, colorHex: '#00E5FF'),
-          ElementConfig(id: 'retro_progress', actionId: 'PROGRESS_BAR', x: 24, y: 430, width: 312, height: 52),
-          ElementConfig(id: 'retro_previous', actionId: 'PREVIOUS_TRACK', x: 52, y: 520, width: 72, height: 72, colorHex: '#FF2BD6'),
-          ElementConfig(id: 'retro_play', actionId: 'PLAY_PAUSE', x: 144, y: 510, width: 88, height: 88, colorHex: '#00E5FF'),
-          ElementConfig(id: 'retro_next', actionId: 'NEXT_TRACK', x: 236, y: 520, width: 72, height: 72, colorHex: '#FF2BD6'),
+          ElementConfig(
+            id: 'retro_blur',
+            actionId: 'BLUR_BACKGROUND',
+            x: 0,
+            y: 0,
+            width: 360,
+            height: 640,
+            opacity: 0.85,
+          ),
+          ElementConfig(
+            id: 'retro_frame',
+            actionId: 'NEON_FRAME',
+            x: 8,
+            y: 8,
+            width: 344,
+            height: 624,
+            borderRadius: 12,
+            colorHex: '#00E5FF',
+          ),
+          ElementConfig(
+            id: 'retro_art',
+            actionId: 'ALBUM_ART',
+            x: 56,
+            y: 72,
+            width: 248,
+            height: 248,
+            borderRadius: 8,
+          ),
+          ElementConfig(
+            id: 'retro_title',
+            actionId: 'SONG_TITLE',
+            x: 32,
+            y: 350,
+            width: 296,
+            height: 48,
+            textSize: 24,
+            colorHex: '#00E5FF',
+          ),
+          ElementConfig(
+            id: 'retro_progress',
+            actionId: 'PROGRESS_BAR',
+            x: 24,
+            y: 430,
+            width: 312,
+            height: 52,
+          ),
+          ElementConfig(
+            id: 'retro_previous',
+            actionId: 'PREVIOUS_TRACK',
+            x: 52,
+            y: 520,
+            width: 72,
+            height: 72,
+            colorHex: '#FF2BD6',
+          ),
+          ElementConfig(
+            id: 'retro_play',
+            actionId: 'PLAY_PAUSE',
+            x: 144,
+            y: 510,
+            width: 88,
+            height: 88,
+            colorHex: '#00E5FF',
+          ),
+          ElementConfig(
+            id: 'retro_next',
+            actionId: 'NEXT_TRACK',
+            x: 236,
+            y: 520,
+            width: 72,
+            height: 72,
+            colorHex: '#FF2BD6',
+          ),
         ];
     }
   }
@@ -885,8 +1122,8 @@ class _LayoutGridPainter extends CustomPainter {
   @override
   bool shouldRepaint(_LayoutGridPainter oldDelegate) {
     return oldDelegate.color != color ||
-      oldDelegate.showGrid != showGrid ||
-      oldDelegate.showGuides != showGuides ||
+        oldDelegate.showGrid != showGrid ||
+        oldDelegate.showGuides != showGuides ||
         oldDelegate.verticalGuides != verticalGuides ||
         oldDelegate.horizontalGuides != horizontalGuides;
   }
@@ -1122,7 +1359,10 @@ class _ComponentOption {
 }
 
 class _EditorInteractiveFeedback extends StatefulWidget {
-  const _EditorInteractiveFeedback({required this.element, required this.child});
+  const _EditorInteractiveFeedback({
+    required this.element,
+    required this.child,
+  });
 
   final ElementConfig element;
   final Widget child;
@@ -1220,14 +1460,17 @@ class _LayersSheetState extends State<_LayersSheet> {
                     leading: const Icon(FluentIcons.layer_24_regular),
                     title: Text(_layerLabel(element)),
                     subtitle: Text(element.id),
-                    trailing: const Icon(FluentIcons.re_order_dots_vertical_24_regular),
+                    trailing: const Icon(
+                      FluentIcons.re_order_dots_vertical_24_regular,
+                    ),
                   );
                 },
               ),
             ),
             const SizedBox(height: 12),
             FilledButton(
-              onPressed: () => Navigator.pop(context, _topToBottom.reversed.toList()),
+              onPressed: () =>
+                  Navigator.pop(context, _topToBottom.reversed.toList()),
               child: const Text('Sıralamayı Uygula'),
             ),
           ],
@@ -1326,161 +1569,202 @@ class _ElementEditorPanelState extends State<_ElementEditorPanel> {
         ),
         child: SingleChildScrollView(
           child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Text(
-              widget.element.id,
-              style: Theme.of(context).textTheme.titleLarge,
-            ),
-            const SizedBox(height: 16),
-            GridView.count(
-              crossAxisCount: 2,
-              childAspectRatio: 2.4,
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              children: fields,
-            ),
-            const SizedBox(height: 8),
-            _sliderField(
-              label: 'Köşe Yuvarlama',
-              value: _borderRadius,
-              min: 0,
-              max: 50,
-              divisions: 50,
-              suffix: _borderRadius.toStringAsFixed(0),
-              onChanged: (value) => setState(() => _borderRadius = value),
-            ),
-            _sliderField(
-              label: 'Saydamlık',
-              value: _opacity,
-              min: 0,
-              max: 1,
-              divisions: 20,
-              suffix: _opacity.toStringAsFixed(2),
-              onChanged: (value) => setState(() => _opacity = value),
-            ),
-            if (_isTextElement) ...[
-              DropdownButtonFormField<String>(
-                initialValue: _textAlignment,
-                decoration: const InputDecoration(labelText: 'Metin Hizalama'),
-                items: const [
-                  DropdownMenuItem(value: 'left', child: Text('Sol')),
-                  DropdownMenuItem(value: 'center', child: Text('Orta')),
-                  DropdownMenuItem(value: 'right', child: Text('Sağ')),
-                ],
-                onChanged: (value) {
-                  if (value != null) setState(() => _textAlignment = value);
-                },
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(
+                widget.element.id,
+                style: Theme.of(context).textTheme.titleLarge,
+              ),
+              const SizedBox(height: 16),
+              GridView.count(
+                crossAxisCount: 2,
+                childAspectRatio: 2.4,
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                children: fields,
+              ),
+              const SizedBox(height: 8),
+              _sliderField(
+                label: 'Köşe Yuvarlama',
+                value: _borderRadius,
+                min: 0,
+                max: 50,
+                divisions: 50,
+                suffix: _borderRadius.toStringAsFixed(0),
+                onChanged: (value) => setState(() => _borderRadius = value),
               ),
               _sliderField(
-                label: 'Punto Boyutu',
-                value: _textSize,
-                min: 8,
-                max: 48,
-                divisions: 40,
-                suffix: _textSize.toStringAsFixed(0),
-                onChanged: (value) => setState(() => _textSize = value),
+                label: 'Saydamlık',
+                value: _opacity,
+                min: 0,
+                max: 1,
+                divisions: 20,
+                suffix: _opacity.toStringAsFixed(2),
+                onChanged: (value) => setState(() => _opacity = value),
               ),
+              if (_isTextElement) ...[
+                DropdownButtonFormField<String>(
+                  initialValue: _textAlignment,
+                  decoration: const InputDecoration(
+                    labelText: 'Metin Hizalama',
+                  ),
+                  items: const [
+                    DropdownMenuItem(value: 'left', child: Text('Sol')),
+                    DropdownMenuItem(value: 'center', child: Text('Orta')),
+                    DropdownMenuItem(value: 'right', child: Text('Sağ')),
+                  ],
+                  onChanged: (value) {
+                    if (value != null) setState(() => _textAlignment = value);
+                  },
+                ),
+                _sliderField(
+                  label: 'Punto Boyutu',
+                  value: _textSize,
+                  min: 8,
+                  max: 48,
+                  divisions: 40,
+                  suffix: _textSize.toStringAsFixed(0),
+                  onChanged: (value) => setState(() => _textSize = value),
+                ),
+              ],
+              const SizedBox(height: 12),
+              DropdownButtonFormField<String?>(
+                initialValue: _actionId,
+                decoration: const InputDecoration(
+                  labelText: 'Buton Aksiyonu / İşlevi',
+                ),
+                items: const [
+                  DropdownMenuItem<String?>(value: null, child: Text('Yok')),
+                  DropdownMenuItem(
+                    value: 'SONG_TITLE',
+                    child: Text('Şarkı Adı'),
+                  ),
+                  DropdownMenuItem(
+                    value: 'ARTIST_NAME',
+                    child: Text('Sanatçı Adı'),
+                  ),
+                  DropdownMenuItem(
+                    value: 'CURRENT_TIME',
+                    child: Text('Geçen Süre'),
+                  ),
+                  DropdownMenuItem(
+                    value: 'TOTAL_TIME',
+                    child: Text('Toplam Süre'),
+                  ),
+                  DropdownMenuItem(
+                    value: 'PLAY_PAUSE',
+                    child: Text('Oynat / Duraklat'),
+                  ),
+                  DropdownMenuItem(
+                    value: 'NEXT_TRACK',
+                    child: Text('Sonraki Şarkı'),
+                  ),
+                  DropdownMenuItem(
+                    value: 'PREVIOUS_TRACK',
+                    child: Text('Önceki Şarkı'),
+                  ),
+                  DropdownMenuItem(value: 'LIKE', child: Text('Beğen')),
+                  DropdownMenuItem(value: 'SHUFFLE', child: Text('Karıştır')),
+                  DropdownMenuItem(value: 'REPEAT', child: Text('Tekrarla')),
+                  DropdownMenuItem(
+                    value: 'OPEN_QUEUE',
+                    child: Text('Sırayı Aç'),
+                  ),
+                  DropdownMenuItem(
+                    value: 'OPEN_LYRICS',
+                    child: Text('Şarkı Sözlerini Aç'),
+                  ),
+                  DropdownMenuItem(
+                    value: 'TOGGLE_EQUALIZER',
+                    child: Text('Ekolayzeri Aç / Kapat'),
+                  ),
+                  DropdownMenuItem(
+                    value: 'MUTE_UNMUTE',
+                    child: Text('Sessize Al / Sesi Aç'),
+                  ),
+                ],
+                onChanged: (value) => setState(() => _actionId = value),
+              ),
+              SwitchListTile(
+                contentPadding: EdgeInsets.zero,
+                title: const Text('Dokunma Titreşimi'),
+                value: _hapticEnabled,
+                onChanged: (value) => setState(() => _hapticEnabled = value),
+              ),
+              DropdownButtonFormField<String>(
+                initialValue: _tapEffect,
+                decoration: const InputDecoration(labelText: 'Tıklama Efekti'),
+                items: const [
+                  DropdownMenuItem(
+                    value: 'scale_down',
+                    child: Text('Ölçek Küçülme'),
+                  ),
+                  DropdownMenuItem(
+                    value: 'ripple',
+                    child: Text('Ripple / Su Dalgası'),
+                  ),
+                  DropdownMenuItem(
+                    value: 'glow_flash',
+                    child: Text('Parlama / Glow Flash'),
+                  ),
+                ],
+                onChanged: (value) {
+                  if (value != null) setState(() => _tapEffect = value);
+                },
+              ),
+              const SizedBox(height: 8),
+              TextField(
+                controller: _colorController,
+                decoration: const InputDecoration(
+                  labelText: 'Renk (HEX)',
+                  hintText: '#009688',
+                  prefixIcon: Icon(FluentIcons.color_24_filled),
+                ),
+                textInputAction: TextInputAction.done,
+              ),
+              const SizedBox(height: 12),
+              OutlinedButton.icon(
+                onPressed: _isPickingImage ? null : _pickImage,
+                icon: const Icon(FluentIcons.image_add_24_filled),
+                label: Text(
+                  _customImagePath != null &&
+                          !_customImagePath!.startsWith('http')
+                      ? 'Özel Görseli Değiştir (PNG/JPG/GIF)'
+                      : 'Özel Görsel / PNG / GIF Yükle',
+                ),
+              ),
+              const SizedBox(height: 8),
+              OutlinedButton.icon(
+                onPressed: TenorService.hasApiKey ? _showTenorPicker : null,
+                icon: const Icon(FluentIcons.gif_24_filled),
+                label: const Text('Tenor\'dan GIF Ara & Ekle'),
+              ),
+              if (_customImagePath != null &&
+                  !_customImagePath!.startsWith('http'))
+                Text(
+                  _customImagePath!,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+              const SizedBox(height: 8),
+              TextField(
+                controller: _imageUrlController,
+                decoration: const InputDecoration(
+                  labelText: 'Görsel URL (isteğe bağlı)',
+                  hintText: 'https://ornek.com/gorsel.png',
+                  prefixIcon: Icon(FluentIcons.globe_24_filled),
+                ),
+                keyboardType: TextInputType.url,
+                onChanged: (value) {
+                  final url = value.trim();
+                  setState(() => _customImagePath = url.isEmpty ? null : url);
+                },
+              ),
+              const SizedBox(height: 20),
+              FilledButton(onPressed: _apply, child: const Text('Uygula')),
             ],
-            const SizedBox(height: 12),
-            DropdownButtonFormField<String?>(
-              initialValue: _actionId,
-              decoration: const InputDecoration(
-                labelText: 'Buton Aksiyonu / İşlevi',
-              ),
-              items: const [
-                DropdownMenuItem<String?>(value: null, child: Text('Yok')),
-                DropdownMenuItem(value: 'SONG_TITLE', child: Text('Şarkı Adı')),
-                DropdownMenuItem(value: 'ARTIST_NAME', child: Text('Sanatçı Adı')),
-                DropdownMenuItem(value: 'CURRENT_TIME', child: Text('Geçen Süre')),
-                DropdownMenuItem(value: 'TOTAL_TIME', child: Text('Toplam Süre')),
-                DropdownMenuItem(value: 'PLAY_PAUSE', child: Text('Oynat / Duraklat')),
-                DropdownMenuItem(value: 'NEXT_TRACK', child: Text('Sonraki Şarkı')),
-                DropdownMenuItem(value: 'PREVIOUS_TRACK', child: Text('Önceki Şarkı')),
-                DropdownMenuItem(value: 'LIKE', child: Text('Beğen')),
-                DropdownMenuItem(value: 'SHUFFLE', child: Text('Karıştır')),
-                DropdownMenuItem(value: 'REPEAT', child: Text('Tekrarla')),
-                DropdownMenuItem(value: 'OPEN_QUEUE', child: Text('Sırayı Aç')),
-                DropdownMenuItem(value: 'OPEN_LYRICS', child: Text('Şarkı Sözlerini Aç')),
-                DropdownMenuItem(value: 'TOGGLE_EQUALIZER', child: Text('Ekolayzeri Aç / Kapat')),
-                DropdownMenuItem(value: 'MUTE_UNMUTE', child: Text('Sessize Al / Sesi Aç')),
-              ],
-              onChanged: (value) => setState(() => _actionId = value),
-            ),
-            SwitchListTile(
-              contentPadding: EdgeInsets.zero,
-              title: const Text('Dokunma Titreşimi'),
-              value: _hapticEnabled,
-              onChanged: (value) => setState(() => _hapticEnabled = value),
-            ),
-            DropdownButtonFormField<String>(
-              initialValue: _tapEffect,
-              decoration: const InputDecoration(labelText: 'Tıklama Efekti'),
-              items: const [
-                DropdownMenuItem(value: 'scale_down', child: Text('Ölçek Küçülme')),
-                DropdownMenuItem(value: 'ripple', child: Text('Ripple / Su Dalgası')),
-                DropdownMenuItem(value: 'glow_flash', child: Text('Parlama / Glow Flash')),
-              ],
-              onChanged: (value) {
-                if (value != null) setState(() => _tapEffect = value);
-              },
-            ),
-            const SizedBox(height: 8),
-            TextField(
-              controller: _colorController,
-              decoration: const InputDecoration(
-                labelText: 'Renk (HEX)',
-                hintText: '#009688',
-                prefixIcon: Icon(FluentIcons.color_24_filled),
-              ),
-              textInputAction: TextInputAction.done,
-            ),
-            const SizedBox(height: 12),
-            OutlinedButton.icon(
-              onPressed: _isPickingImage ? null : _pickImage,
-              icon: const Icon(FluentIcons.image_add_24_filled),
-              label: Text(
-                _customImagePath != null &&
-                        !_customImagePath!.startsWith('http')
-                    ? 'Özel Görseli Değiştir (PNG/JPG/GIF)'
-                    : 'Özel Görsel / PNG / GIF Yükle',
-              ),
-            ),
-            const SizedBox(height: 8),
-            OutlinedButton.icon(
-              onPressed: TenorService.hasApiKey ? _showTenorPicker : null,
-              icon: const Icon(FluentIcons.gif_24_filled),
-              label: const Text('Tenor\'dan GIF Ara & Ekle'),
-            ),
-            if (_customImagePath != null &&
-                !_customImagePath!.startsWith('http'))
-              Text(
-                _customImagePath!,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: Theme.of(context).textTheme.bodySmall,
-              ),
-            const SizedBox(height: 8),
-            TextField(
-              controller: _imageUrlController,
-              decoration: const InputDecoration(
-                labelText: 'Görsel URL (isteğe bağlı)',
-                hintText: 'https://ornek.com/gorsel.png',
-                prefixIcon: Icon(FluentIcons.globe_24_filled),
-              ),
-              keyboardType: TextInputType.url,
-              onChanged: (value) {
-                final url = value.trim();
-                setState(() => _customImagePath = url.isEmpty ? null : url);
-              },
-            ),
-            const SizedBox(height: 20),
-            FilledButton(
-              onPressed: _apply,
-              child: const Text('Uygula'),
-            ),
-          ],
           ),
         ),
       ),
@@ -1550,12 +1834,13 @@ class _ElementEditorPanelState extends State<_ElementEditorPanel> {
                     SizedBox(
                       height: 300,
                       child: GridView.builder(
-                        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                          crossAxisCount: 2,
-                          mainAxisSpacing: 8,
-                          crossAxisSpacing: 8,
-                          childAspectRatio: 1,
-                        ),
+                        gridDelegate:
+                            const SliverGridDelegateWithFixedCrossAxisCount(
+                              crossAxisCount: 2,
+                              mainAxisSpacing: 8,
+                              crossAxisSpacing: 8,
+                              childAspectRatio: 1,
+                            ),
                         itemCount: _tenorResults.length,
                         itemBuilder: (context, index) {
                           final result = _tenorResults[index];
@@ -1570,7 +1855,9 @@ class _ElementEditorPanelState extends State<_ElementEditorPanel> {
                             child: ClipRRect(
                               borderRadius: BorderRadius.circular(12),
                               child: Image.network(
-                                result.previewUrl.isNotEmpty ? result.previewUrl : result.url,
+                                result.previewUrl.isNotEmpty
+                                    ? result.previewUrl
+                                    : result.url,
                                 fit: BoxFit.cover,
                                 gaplessPlayback: true,
                               ),
@@ -1603,7 +1890,9 @@ class _ElementEditorPanelState extends State<_ElementEditorPanel> {
     );
   }
 
-  Future<void> _searchTenor(void Function(void Function()) setDialogState) async {
+  Future<void> _searchTenor(
+    void Function(void Function()) setDialogState,
+  ) async {
     final query = _tenorQueryController.text.trim();
     if (query.isEmpty) return;
     setDialogState(() {

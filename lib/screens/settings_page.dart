@@ -47,6 +47,7 @@ import 'package:musify/widgets/bottom_sheet_bar.dart';
 import 'package:musify/widgets/confirmation_dialog.dart';
 import 'package:musify/widgets/custom_bar.dart';
 import 'package:musify/widgets/mini_player_bottom_space.dart';
+import 'package:musify/widgets/layout_page_overlay.dart';
 import 'package:musify/widgets/section_header.dart';
 
 class SettingsPage extends StatefulWidget {
@@ -85,22 +86,25 @@ class _SettingsPageState extends State<SettingsPage> {
 
     return Scaffold(
       appBar: AppBar(title: Text(context.l10n!.settings)),
-      body: SingleChildScrollView(
-        padding: commonSingleChildScrollViewPadding,
-        child: Column(
-          children: <Widget>[
-            _buildPreferencesSection(
-              context,
-              primaryColor,
-              activatedColor,
-              inactivatedColor,
-            ),
-            _buildLayoutSection(context),
-            if (!offlineMode.value) _buildOnlineFeaturesSection(context),
-            _buildOthersSection(context),
-            const SizedBox(height: 20),
-            const MiniPlayerBottomSpace(),
-          ],
+      body: LayoutPageOverlay(
+        page: LayoutPage.settings,
+        child: SingleChildScrollView(
+          padding: commonSingleChildScrollViewPadding,
+          child: Column(
+            children: <Widget>[
+              _buildPreferencesSection(
+                context,
+                primaryColor,
+                activatedColor,
+                inactivatedColor,
+              ),
+              _buildLayoutSection(context),
+              if (!offlineMode.value) _buildOnlineFeaturesSection(context),
+              _buildOthersSection(context),
+              const SizedBox(height: 20),
+              const MiniPlayerBottomSpace(),
+            ],
+          ),
         ),
       ),
     );
@@ -148,10 +152,7 @@ class _SettingsPageState extends State<SettingsPage> {
           FluentIcons.edit_24_regular,
           borderRadius: commonCustomBarRadiusLast,
           onTap: () async {
-            await context.push(
-              '/settings/layout-editor',
-              extra: selectedSlot,
-            );
+            await context.push('/settings/layout-editor', extra: selectedSlot);
             await _loadLayouts();
           },
         ),

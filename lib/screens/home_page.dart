@@ -26,6 +26,7 @@ import 'package:musify/constants/app_constants.dart';
 import 'package:musify/extensions/l10n.dart';
 import 'package:musify/main.dart';
 import 'package:musify/services/common_services.dart';
+import 'package:musify/services/layout_repository.dart';
 import 'package:musify/services/listening_stats_service.dart';
 import 'package:musify/services/playlists_manager.dart';
 import 'package:musify/services/settings_manager.dart';
@@ -34,6 +35,7 @@ import 'package:musify/utilities/async_loader.dart';
 import 'package:musify/utilities/listening_stats_utils.dart';
 import 'package:musify/widgets/announcement_box.dart';
 import 'package:musify/widgets/listening_recap_card.dart';
+import 'package:musify/widgets/layout_page_overlay.dart';
 import 'package:musify/widgets/mini_player_bottom_space.dart';
 import 'package:musify/widgets/playlist_cube.dart';
 import 'package:musify/widgets/section_header.dart';
@@ -78,40 +80,42 @@ class _HomePageState extends State<HomePage> {
     final playlistHeight = MediaQuery.sizeOf(context).height * 0.25 / 1.1;
     return Scaffold(
       appBar: AppBar(title: const Text('Musify.')),
-      body: SingleChildScrollView(
-        padding: commonSingleChildScrollViewPadding,
-        child: Column(
-          children: [
-            ValueListenableBuilder<String?>(
-              valueListenable: announcementURL,
-              builder: (_, _url, __) {
-                if (_url == null) return const SizedBox.shrink();
-                final isSponsorshipAnnouncement = isSponsorshipAnnouncementUrl(
-                  _url,
-                );
-                final _message = isSponsorshipAnnouncement
-                    ? context.l10n!.sponsorProject
-                    : context.l10n!.newAnnouncement;
-                final _icon = isSponsorshipAnnouncement
-                    ? FluentIcons.heart_24_filled
-                    : FluentIcons.megaphone_24_filled;
+      body: LayoutPageOverlay(
+        page: LayoutPage.home,
+        child: SingleChildScrollView(
+          padding: commonSingleChildScrollViewPadding,
+          child: Column(
+            children: [
+              ValueListenableBuilder<String?>(
+                valueListenable: announcementURL,
+                builder: (_, _url, __) {
+                  if (_url == null) return const SizedBox.shrink();
+                  final isSponsorshipAnnouncement =
+                      isSponsorshipAnnouncementUrl(_url);
+                  final _message = isSponsorshipAnnouncement
+                      ? context.l10n!.sponsorProject
+                      : context.l10n!.newAnnouncement;
+                  final _icon = isSponsorshipAnnouncement
+                      ? FluentIcons.heart_24_filled
+                      : FluentIcons.megaphone_24_filled;
 
-                return AnnouncementBox(
-                  message: _message,
-                  url: _url,
-                  icon: _icon,
-                  onDismiss: () async {
-                    announcementURL.value = null;
-                  },
-                );
-              },
-            ),
-            _buildSuggestedPlaylists(playlistHeight),
-            _buildSuggestedPlaylists(playlistHeight, showOnlyLiked: true),
-            _buildCurrentMonthRecapSection(),
-            _buildRecommendedSongsSection(),
-            const MiniPlayerBottomSpace(),
-          ],
+                  return AnnouncementBox(
+                    message: _message,
+                    url: _url,
+                    icon: _icon,
+                    onDismiss: () async {
+                      announcementURL.value = null;
+                    },
+                  );
+                },
+              ),
+              _buildSuggestedPlaylists(playlistHeight),
+              _buildSuggestedPlaylists(playlistHeight, showOnlyLiked: true),
+              _buildCurrentMonthRecapSection(),
+              _buildRecommendedSongsSection(),
+              const MiniPlayerBottomSpace(),
+            ],
+          ),
         ),
       ),
     );

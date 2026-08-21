@@ -1,5 +1,18 @@
 import 'package:hive/hive.dart';
+import 'package:musify/models/element_config.dart';
 import 'package:musify/models/layout_slot.dart';
+
+enum LayoutPage {
+  nowPlaying(1, 'Şimdi Çalıyor'),
+  home(2, 'Ana Sayfa'),
+  library(3, 'Kütüphane'),
+  settings(4, 'Ayarlar');
+
+  const LayoutPage(this.slotId, this.label);
+
+  final int slotId;
+  final String label;
+}
 
 class LayoutRepository {
   LayoutRepository({this._box});
@@ -16,9 +29,7 @@ class LayoutRepository {
 
     return rawSlots
         .map(
-          (slot) => LayoutSlot.fromJson(
-            Map<String, dynamic>.from(slot as Map),
-          ),
+          (slot) => LayoutSlot.fromJson(Map<String, dynamic>.from(slot as Map)),
         )
         .toList();
   }
@@ -32,6 +43,10 @@ class LayoutRepository {
     return null;
   }
 
+  Future<LayoutSlot?> getPageLayout(LayoutPage page) {
+    return getSlot(page.slotId);
+  }
+
   Future<void> saveSlot(LayoutSlot slot) async {
     final slots = await getSlots();
     final index = slots.indexWhere((current) => current.slotId == slot.slotId);
@@ -43,6 +58,12 @@ class LayoutRepository {
     await _storageBox.put(
       _slotsKey,
       slots.map((current) => current.toJson()).toList(),
+    );
+  }
+
+  Future<void> savePageLayout(LayoutPage page, List<ElementConfig> elements) {
+    return saveSlot(
+      LayoutSlot(slotId: page.slotId, slotName: page.label, elements: elements),
     );
   }
 

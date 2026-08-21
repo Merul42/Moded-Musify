@@ -95,26 +95,12 @@ class _NowPlayingPageState extends State<NowPlayingPage> {
     double baseIconSize,
     double miniIconSize,
   ) {
-    return FutureBuilder<int>(
-      future: LayoutRepository().getActiveSlotId(),
-      builder: (context, activeSnapshot) {
-        if (activeSnapshot.hasData) {
-          return FutureBuilder<LayoutSlot?>(
-            future: LayoutRepository().getSlot(activeSnapshot.data!),
-            builder: (context, slotSnapshot) {
-              final slot = slotSnapshot.data;
-              if (slot != null && slot.elements.isNotEmpty) {
-                return DynamicLayoutPlayer(slot: slot, metadata: metadata);
-              }
-              return _buildDefaultPlayerLayout(
-                metadata,
-                size,
-                isLargeScreen,
-                baseIconSize,
-                miniIconSize,
-              );
-            },
-          );
+    return FutureBuilder<LayoutSlot?>(
+      future: LayoutRepository().getPageLayout(LayoutPage.nowPlaying),
+      builder: (context, slotSnapshot) {
+        final slot = slotSnapshot.data;
+        if (slot != null && slot.elements.isNotEmpty) {
+          return DynamicLayoutPlayer(slot: slot, metadata: metadata);
         }
         return _buildDefaultPlayerLayout(
           metadata,

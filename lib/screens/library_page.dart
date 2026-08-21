@@ -27,6 +27,7 @@ import 'package:musify/constants/app_constants.dart';
 import 'package:musify/extensions/l10n.dart';
 import 'package:musify/main.dart' show logger;
 import 'package:musify/services/common_services.dart';
+import 'package:musify/services/layout_repository.dart';
 import 'package:musify/services/playlist_download_service.dart';
 import 'package:musify/services/playlists_manager.dart';
 import 'package:musify/services/router_service.dart';
@@ -38,6 +39,7 @@ import 'package:musify/utilities/offline_playlist_dialogs.dart';
 import 'package:musify/utilities/playlist_dialogs.dart';
 import 'package:musify/utilities/playlist_utils.dart';
 import 'package:musify/widgets/confirmation_dialog.dart';
+import 'package:musify/widgets/layout_page_overlay.dart';
 import 'package:musify/widgets/mini_player_bottom_space.dart';
 import 'package:musify/widgets/playlist_bar.dart';
 import 'package:musify/widgets/section_header.dart';
@@ -60,9 +62,8 @@ class _LibraryPageState extends State<LibraryPage> {
           userCustomPlaylists.value.isNotEmpty;
       final hasOfflinePlaylists = offlinePlaylistService.offlinePlaylists.value
           .any((p) => p is Map && !PlaylistUtils.isArtistPlaylist(p));
-      final hasOfflineArtists = getLikedArtistItems(
-        offlineOnly: true,
-      ).isNotEmpty;
+      final hasOfflineArtists = getLikedArtistItems(offlineOnly: true)
+          .isNotEmpty;
       final hasOfflineSongs = userOfflineSongs.value.isNotEmpty;
 
       if (!hasUserContent &&
@@ -102,9 +103,8 @@ class _LibraryPageState extends State<LibraryPage> {
                   const SizedBox(height: 8),
                   Text(
                     context.l10n!.noOfflineLibraryContent,
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: colorScheme.onSurfaceVariant,
-                    ),
+                    style: Theme.of(context).textTheme.bodyMedium
+                        ?.copyWith(color: colorScheme.onSurfaceVariant),
                     textAlign: TextAlign.center,
                   ),
                 ],
@@ -117,32 +117,35 @@ class _LibraryPageState extends State<LibraryPage> {
 
     return Scaffold(
       appBar: AppBar(title: Text(context.l10n!.library)),
-      body: AnimatedBuilder(
-        animation: Listenable.merge([
-          pinnedPlaylistIds,
-          offlineMode,
-          userCustomPlaylists,
-          userPlaylistFolders,
-          offlinePlaylistService.offlinePlaylists,
-          userLikedPlaylists,
-          onlinePlaylists,
-          userPlaylists,
-          userOfflineSongs,
-        ]),
-        builder: (context, _) {
-          return Padding(
-            padding: commonSingleChildScrollViewPadding,
-            child: CustomScrollView(
-              slivers: [
-                ..._buildPinnedSlivers(),
-                ..._buildUserPlaylistsSlivers(),
-                if (!offlineMode.value) ..._buildLikedPlaylistsSlivers(),
-                ..._buildLikedArtistsSlivers(),
-                const SliverMiniPlayerBottomSpace(),
-              ],
-            ),
-          );
-        },
+      body: LayoutPageOverlay(
+        page: LayoutPage.library,
+        child: AnimatedBuilder(
+          animation: Listenable.merge([
+            pinnedPlaylistIds,
+            offlineMode,
+            userCustomPlaylists,
+            userPlaylistFolders,
+            offlinePlaylistService.offlinePlaylists,
+            userLikedPlaylists,
+            onlinePlaylists,
+            userPlaylists,
+            userOfflineSongs,
+          ]),
+          builder: (context, _) {
+            return Padding(
+              padding: commonSingleChildScrollViewPadding,
+              child: CustomScrollView(
+                slivers: [
+                  ..._buildPinnedSlivers(),
+                  ..._buildUserPlaylistsSlivers(),
+                  if (!offlineMode.value) ..._buildLikedPlaylistsSlivers(),
+                  ..._buildLikedArtistsSlivers(),
+                  const SliverMiniPlayerBottomSpace(),
+                ],
+              ),
+            );
+          },
+        ),
       ),
     );
   }
