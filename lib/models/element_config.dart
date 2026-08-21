@@ -7,6 +7,7 @@ class ElementConfig {
     required this.height,
     this.colorHex,
     this.customImagePath,
+    this.mediaSource,
     this.actionId,
     this.borderRadius = 0,
     this.opacity = 1,
@@ -17,6 +18,8 @@ class ElementConfig {
   });
 
   factory ElementConfig.fromJson(Map<String, dynamic> json) {
+    final customImagePath = json['customImagePath'] as String?;
+    final mediaSource = json['mediaSource'] as String? ?? customImagePath;
     return ElementConfig(
       id: json['id'] as String,
       x: (json['x'] as num).toDouble(),
@@ -24,7 +27,8 @@ class ElementConfig {
       width: (json['width'] as num).toDouble(),
       height: (json['height'] as num).toDouble(),
       colorHex: json['colorHex'] as String?,
-      customImagePath: json['customImagePath'] as String?,
+      customImagePath: customImagePath,
+      mediaSource: mediaSource,
       actionId: json['actionId'] as String?,
       borderRadius: (json['borderRadius'] as num?)?.toDouble() ?? 0,
       opacity: (json['opacity'] as num?)?.toDouble() ?? 1,
@@ -42,6 +46,7 @@ class ElementConfig {
   final double height;
   final String? colorHex;
   final String? customImagePath;
+  final String? mediaSource;
   final String? actionId;
   final double borderRadius;
   final double opacity;
@@ -49,6 +54,8 @@ class ElementConfig {
   final double textSize;
   final bool hapticEnabled;
   final String tapEffect;
+
+  String? get resolvedMediaSource => mediaSource ?? customImagePath;
 
   Map<String, dynamic> toJson() {
     return {
@@ -59,6 +66,7 @@ class ElementConfig {
       'height': height,
       'colorHex': colorHex,
       'customImagePath': customImagePath,
+      'mediaSource': mediaSource ?? customImagePath,
       'actionId': actionId,
       'borderRadius': borderRadius,
       'opacity': opacity,
@@ -77,6 +85,7 @@ class ElementConfig {
     double? height,
     String? colorHex,
     String? customImagePath,
+    String? mediaSource,
     String? actionId,
     double? borderRadius,
     double? opacity,
@@ -93,6 +102,7 @@ class ElementConfig {
       height: height ?? this.height,
       colorHex: colorHex ?? this.colorHex,
       customImagePath: customImagePath ?? this.customImagePath,
+      mediaSource: mediaSource ?? this.mediaSource ?? this.customImagePath,
       actionId: actionId ?? this.actionId,
       borderRadius: borderRadius ?? this.borderRadius,
       opacity: opacity ?? this.opacity,

@@ -90,29 +90,29 @@ class _DynamicElement extends StatelessWidget {
       );
     }
     final action = _actionWidget(context);
-    if (element.customImagePath == null || element.customImagePath!.isEmpty) {
+    final path = element.resolvedMediaSource;
+    if (path == null || path.isEmpty) {
       return _styled(context, _InteractiveFeedback(element: element, child: action));
     }
 
-    final path = element.customImagePath!;
     final image = path.startsWith('http://') || path.startsWith('https://')
-        ? Image.network(path, fit: BoxFit.cover)
+        ? Image.network(path, fit: BoxFit.cover, gaplessPlayback: true)
         : Image.file(File(path), fit: BoxFit.cover);
     return _styled(
       context,
       _InteractiveFeedback(
         element: element,
         child: Stack(
-        fit: StackFit.expand,
-        children: [
-          ColorFiltered(
-            colorFilter: color == null
-                ? const ColorFilter.mode(Colors.transparent, BlendMode.dst)
-                : ColorFilter.mode(color, BlendMode.srcATop),
-            child: image,
-          ),
-          _actionWidget(context),
-        ],
+          fit: StackFit.expand,
+          children: [
+            ColorFiltered(
+              colorFilter: color == null
+                  ? const ColorFilter.mode(Colors.transparent, BlendMode.dst)
+                  : ColorFilter.mode(color, BlendMode.srcATop),
+              child: image,
+            ),
+            _actionWidget(context),
+          ],
         ),
       ),
     );

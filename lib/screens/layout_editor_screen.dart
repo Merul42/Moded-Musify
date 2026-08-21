@@ -12,6 +12,7 @@ import 'package:musify/models/element_config.dart';
 import 'package:musify/models/layout_slot.dart';
 import 'package:musify/services/io_service.dart';
 import 'package:musify/services/layout_repository.dart';
+import 'package:musify/services/tenor_service.dart';
 import 'package:musify/widgets/now_playing/dynamic_layout_player.dart';
 
 class LayoutEditorScreen extends StatefulWidget {
@@ -301,33 +302,39 @@ class _LayoutEditorScreenState extends State<LayoutEditorScreen> {
   Widget _buildElementContent(ElementConfig element, Color color) {
     final componentId = element.actionId ?? element.id;
     if (componentId == 'BLUR_BACKGROUND') {
-      return BackdropFilter(
-        filter: ui.ImageFilter.blur(sigmaX: 12, sigmaY: 12),
-        child: ColoredBox(color: color.withValues(alpha: 0.18)),
-      );
-    }
-    if (componentId == 'NEON_FRAME' || componentId == 'EKRAN_CERCEVESI') {
-      return DecoratedBox(
-        decoration: BoxDecoration(
-          border: Border.all(color: color, width: 3),
-          boxShadow: [
-            BoxShadow(color: color.withValues(alpha: 0.9), blurRadius: 12),
-            BoxShadow(color: color.withValues(alpha: 0.55), blurRadius: 28),
-          ],
+      return _mediaOrFallback(
+        element,
+        child: BackdropFilter(
+          filter: ui.ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+          child: ColoredBox(color: color.withValues(alpha: 0.18)),
         ),
       );
     }
-    final imagePath = element.customImagePath;
-    if (imagePath != null && imagePath.isNotEmpty) {
-      final image = imagePath.startsWith('http://') ||
-              imagePath.startsWith('https://')
-          ? Image.network(imagePath, fit: BoxFit.cover)
-          : Image.file(File(imagePath), fit: BoxFit.cover);
-      return ColorFiltered(
-        colorFilter: ColorFilter.mode(color, BlendMode.srcATop),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(element.borderRadius),
-          child: image,
+    if (componentId == 'NEON_FRAME' || componentId == 'EKRAN_CERCEVESI') {
+      return _mediaOrFallback(
+        element,
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            border: Border.all(color: color, width: 3),
+            boxShadow: [
+              BoxShadow(color: color.withValues(alpha: 0.9), blurRadius: 12),
+              BoxShadow(color: color.withValues(alpha: 0.55), blurRadius: 28),
+            ],
+          ),
+        ),
+      );
+    }
+
+    final mediaUrl = element.resolvedMediaSource;
+    if (mediaUrl != null && mediaUrl.isNotEmpty) {
+      return _mediaOrFallback(
+        element,
+        child: ColorFiltered(
+          colorFilter: ColorFilter.mode(color, BlendMode.srcATop),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(element.borderRadius),
+            child: _buildMediaWidget(mediaUrl, element),
+          ),
         ),
       );
     }
@@ -348,6 +355,44 @@ class _LayoutEditorScreenState extends State<LayoutEditorScreen> {
           ),
         ),
       ),
+    );
+  }
+
+  Widget _mediaOrFallback(ElementConfig element, {required Widget child}) {
+    final mediaUrl = element.resolvedMediaSource;
+    if (mediaUrl == null || mediaUrl.isEmpty) return child;
+    return _buildMediaWidget(mediaUrl, element, fallback: child);
+  }
+
+  Widget _buildMediaWidget(
+    String mediaUrl, 
+    ElementConfig element, {
+    Widget? fallback,
+  }) {
+    final isUrl = mediaUrl.startsWith('http://') || mediaUrl.startsWith('https://');
+    if (!isUrl) {
+      final file = File(mediaUrl);
+      if (!file.existsSync()) {
+        return fallback ?? const SizedBox.shrink();
+      }
+      final image = Image.file(file, fit: BoxFit.cover);
+      return fallback == null ? image : Stack(fit: StackFit.expand, children: [image]);
+    }
+
+    if (mediaUrl.toLowerCase().endsWith('.gif') || mediaUrl.contains('tenor') || mediaUrl.contains('giphy')) {
+      return Image.network(
+        mediaUrl,
+        fit: BoxFit.cover,
+        gaplessPlayback: true,
+        cacheWidth: 512,
+      );
+    }
+
+    return Image.network(
+      mediaUrl,
+      fit: BoxFit.cover,
+      gaplessPlayback: true,
+      cacheWidth: 512,
     );
   }
 
@@ -1213,8 +1258,11 @@ class _ElementEditorPanelState extends State<_ElementEditorPanel> {
   late final TextEditingController _heightController;
   late final TextEditingController _colorController;
   late final TextEditingController _imageUrlController;
+  final TextEditingController _tenorQueryController = TextEditingController();
   String? _customImagePath;
   bool _isPickingImage = false;
+  bool _isSearchingTenor = false;
+  List<TenorGifSearchResult> _tenorResults = const <TenorGifSearchResult>[];
   late double _borderRadius;
   late double _opacity;
   late String _textAlignment;
@@ -1255,6 +1303,7 @@ class _ElementEditorPanelState extends State<_ElementEditorPanel> {
     _heightController.dispose();
     _colorController.dispose();
     _imageUrlController.dispose();
+    _tenorQueryController.dispose();
     super.dispose();
   }
 
@@ -1398,6 +1447,12 @@ class _ElementEditorPanelState extends State<_ElementEditorPanel> {
                     : 'Özel Görsel / PNG / GIF Yükle',
               ),
             ),
+            const SizedBox(height: 8),
+            OutlinedButton.icon(
+              onPressed: TenorService.hasApiKey ? _showTenorPicker : null,
+              icon: const Icon(FluentIcons.gif_24_filled),
+              label: const Text('Tenor\'dan GIF Ara & Ekle'),
+            ),
             if (_customImagePath != null &&
                 !_customImagePath!.startsWith('http'))
               Text(
@@ -1460,6 +1515,120 @@ class _ElementEditorPanelState extends State<_ElementEditorPanel> {
     }
   }
 
+  Future<void> _showTenorPicker() async {
+    if (!TenorService.hasApiKey) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Tenor API anahtarı tanımlı değil.')),
+      );
+      return;
+    }
+
+    await showDialog<void>(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (context, setDialogState) {
+          return AlertDialog(
+            title: const Text('Tenor GIF Ara'),
+            content: SizedBox(
+              width: 420,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TextField(
+                    controller: _tenorQueryController,
+                    autofocus: true,
+                    decoration: const InputDecoration(
+                      labelText: 'GIF için arama kelimesi',
+                      hintText: 'dance, cat, vibes',
+                    ),
+                    onSubmitted: (_) => _searchTenor(setDialogState),
+                  ),
+                  const SizedBox(height: 12),
+                  if (_isSearchingTenor)
+                    const Center(child: CircularProgressIndicator())
+                  else if (_tenorResults.isNotEmpty)
+                    SizedBox(
+                      height: 300,
+                      child: GridView.builder(
+                        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount: 2,
+                          mainAxisSpacing: 8,
+                          crossAxisSpacing: 8,
+                          childAspectRatio: 1,
+                        ),
+                        itemCount: _tenorResults.length,
+                        itemBuilder: (context, index) {
+                          final result = _tenorResults[index];
+                          return GestureDetector(
+                            onTap: () {
+                              setState(() {
+                                _customImagePath = result.url;
+                                _imageUrlController.text = result.url;
+                              });
+                              Navigator.of(dialogContext).pop();
+                            },
+                            child: ClipRRect(
+                              borderRadius: BorderRadius.circular(12),
+                              child: Image.network(
+                                result.previewUrl.isNotEmpty ? result.previewUrl : result.url,
+                                fit: BoxFit.cover,
+                                gaplessPlayback: true,
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                    )
+                  else if (_tenorQueryController.text.trim().isNotEmpty)
+                    const Padding(
+                      padding: EdgeInsets.only(top: 12),
+                      child: Text('Arama sonuçları görünmüyor.'),
+                    ),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(dialogContext).pop(),
+                child: const Text('İptal'),
+              ),
+              FilledButton(
+                onPressed: () => _searchTenor(setDialogState),
+                child: const Text('Ara'),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  Future<void> _searchTenor(void Function(void Function()) setDialogState) async {
+    final query = _tenorQueryController.text.trim();
+    if (query.isEmpty) return;
+    setDialogState(() {
+      _isSearchingTenor = true;
+      _tenorResults = const <TenorGifSearchResult>[];
+    });
+
+    try {
+      final results = await TenorService.search(query);
+      setDialogState(() {
+        _tenorResults = results;
+        _isSearchingTenor = false;
+      });
+    } catch (_) {
+      setDialogState(() {
+        _tenorResults = const <TenorGifSearchResult>[];
+        _isSearchingTenor = false;
+      });
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Tenor GIF araması başarısız oldu.')),
+      );
+    }
+  }
+
   Widget _numberField(String label, TextEditingController controller) {
     return Padding(
       padding: const EdgeInsets.all(4),
@@ -1492,6 +1661,7 @@ class _ElementEditorPanelState extends State<_ElementEditorPanel> {
             ? null
             : _colorController.text.trim(),
         customImagePath: _customImagePath,
+        mediaSource: _customImagePath,
         actionId: _actionId,
         borderRadius: _borderRadius,
         opacity: _opacity,
