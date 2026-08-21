@@ -1,5 +1,5 @@
-import 'dart:io';
 import 'dart:convert';
+import 'dart:io';
 import 'dart:ui' as ui;
 
 import 'package:audio_service/audio_service.dart';
@@ -86,7 +86,7 @@ class _LayoutEditorScreenState extends State<LayoutEditorScreen> {
           ),
           IconButton(
             tooltip: 'Şablonlar',
-            icon: const Icon(FluentIcons.book_template_24_filled),
+            icon: const Icon(FluentIcons.book_24_filled),
             onPressed: _showTemplatesSheet,
           ),
           IconButton(
@@ -586,7 +586,7 @@ class _LayoutEditorScreenState extends State<LayoutEditorScreen> {
           ElementConfig(id: 'classic_play', actionId: 'PLAY_PAUSE', x: 148, y: 520, width: 72, height: 72),
           ElementConfig(id: 'classic_next', actionId: 'NEXT_TRACK', x: 248, y: 530, width: 56, height: 56),
         ];
-      case _LayoutTemplate.minimal:
+      case _LayoutTemplate.minimalist:
         return const [
           ElementConfig(id: 'minimal_art', actionId: 'ALBUM_ART', x: 24, y: 260, width: 112, height: 112, borderRadius: 16),
           ElementConfig(id: 'minimal_title', actionId: 'SONG_TITLE', x: 152, y: 274, width: 184, height: 36, textAlignment: 'left', textSize: 18),
@@ -796,7 +796,7 @@ class _ComponentPickerSheet extends StatelessWidget {
         _ComponentOption(
           id: 'SONG_TITLE',
           label: 'Şarkı Adı',
-          icon: FluentIcons.text_24_filled,
+          icon: FluentIcons.text_bullet_list_24_filled,
           defaultWidth: 240,
           defaultHeight: 48,
         ),
