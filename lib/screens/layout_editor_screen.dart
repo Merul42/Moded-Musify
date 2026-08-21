@@ -426,8 +426,8 @@ class _LayoutEditorScreenState extends State<LayoutEditorScreen> {
     final y = ((screenSize.height - height) / 2).clamp(16.0, double.infinity);
     final element = ElementConfig(
       id: '${option.id}_${DateTime.now().microsecondsSinceEpoch}',
-      x: x.toDouble(),
-      y: y.toDouble(),
+      x: x,
+      y: y,
       width: width,
       height: height,
       actionId: option.id,
@@ -956,7 +956,7 @@ class _EditorInteractiveFeedbackState
 
   @override
   Widget build(BuildContext context) {
-    Widget child = widget.child;
+    var child = widget.child;
     if (widget.element.tapEffect == 'scale_down') {
       child = AnimatedScale(
         scale: _pressed ? 0.92 : 1,
